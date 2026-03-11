@@ -1,0 +1,108 @@
+RUNNING THE SMART HOME WEB APP LOCALLY
+=======================================
+
+Step-by-step guide to download and run the application on your computer
+
+PREREQUISITES
+-------------
+Make sure you have these installed:
+✓ Node.js (version 16 or higher)
+✓ npm or yarn package manager
+✓ Git installed
+✓ Code editor (VS Code recommended)
+✓ Web browser (Chrome, Firefox, or Edge)
+
+STEP 1: CLONE THE REPOSITORY
+-----------------------------
+```bash
+git clone https://github.com/yourusername/smarthome-app.git
+cd smarthome-app
+```
+
+STEP 2: INSTALL DEPENDENCIES
+-----------------------------
+```bash
+npm install
+# or
+yarn install
+```
+This installs all required packages including React, MQTT client, and UI libraries
+
+STEP 3: CONFIGURE ENVIRONMENT VARIABLES
+----------------------------------------
+Create a .env file in the root directory:
+
+```
+REACT_APP_ADAFRUIT_USERNAME=dadn50
+REACT_APP_ADAFRUIT_KEY=your_aio_key_here
+REACT_APP_MQTT_BROKER=io.adafruit.com
+REACT_APP_MQTT_PORT=443
+REACT_APP_API_URL=http://localhost:3001
+```
+Replace 'your_aio_key_here' with your actual Adafruit IO key
+
+STEP 4: START THE BACKEND SERVER
+---------------------------------
+Open a new terminal and run:
+```bash
+cd backend
+npm install
+npm start
+```
+✅ Expected output: "Backend server running on port 3001"
+
+STEP 5: START THE FRONTEND APP
+-------------------------------
+Open another terminal and run:
+```bash
+npm start
+```
+✅ Expected: "Compiled successfully! - http://localhost:3000"
+
+STEP 6: OPEN IN BROWSER
+------------------------
+Navigate to: http://localhost:3000
+
+STEP 7: LOGIN WITH DEMO CREDENTIALS
+------------------------------------
+Owner Role:
+Email: owner@example.com
+Password: password123
+
+Family Role:
+Email: family@example.com
+Password: password123
+
+Guest Role:
+Email: guest@example.com
+Password: password123
+
+TROUBLESHOOTING COMMON ISSUES
+------------------------------
+Issue: "Module not found" errors
+Solution: Run npm install again
+
+Issue: Can't connect to Adafruit IO
+Solution: Check AIO key in .env file
+
+Issue: WebSocket connection fails
+Solution: Ensure backend is running on port 3001
+
+Issue: Device shows offline
+Solution: Check YoloBit WiFi connection
+
+Issue: No sensor data
+Solution: Verify MQTT feed names match
+
+PROJECT STRUCTURE
+-----------------
+smarthome-app/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/          # Dashboard, Control, History, etc.
+│   ├── contexts/       # App state management
+│   ├── services/       # MQTT and API services
+│   └── utils/          # Helper functions
+├── backend/            # WebSocket server
+├── public/             # Static files
+└── package.json        # Dependencies

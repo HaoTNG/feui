@@ -1,0 +1,129 @@
+CONNECTING YOUR SMART HOME DEVICES
+===================================
+
+Learn how to connect YoloBit IoT devices to your smart home web app
+
+STEP 1: SET UP YOUR HARDWARE
+-----------------------------
+Connect your YoloBit board and sensors:
+- Connect YoloBit to power using USB-C cable
+- Attach DHT20 temperature/humidity sensor to appropriate pins
+- Connect PIR motion sensor
+- Connect light sensor
+- Attach output devices (fan, LED, LCD display)
+
+STEP 2: CONFIGURE WIFI ON YOLOBIT
+----------------------------------
+Update your code with WiFi credentials:
+
+```python
+import network
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.connect("YourWiFiSSID", "YourWiFiPassword")
+
+# Wait for connection
+while not wlan.isconnected():
+    pass
+
+print("Connected to WiFi")
+print("IP Address:", wlan.ifconfig()[0])
+```
+
+STEP 3: CONNECT TO ADAFRUIT IO
+-------------------------------
+Set up MQTT connection with Adafruit IO:
+1. Create an Adafruit IO account at io.adafruit.com
+2. Get your AIO key from the dashboard
+3. Use the provided username 'dadn50' and your AIO key
+
+```python
+from Adafruit_IO import MQTTClient
+
+# Adafruit IO configuration
+AIO_USERNAME = "dadn50"
+AIO_KEY = "YOUR_AIO_KEY_HERE"
+
+# Create MQTT client
+client = MQTTClient(AIO_USERNAME, AIO_KEY)
+client.connect()
+```
+
+STEP 4: CREATE FEEDS FOR EACH DEVICE
+-------------------------------------
+Create these feeds in your Adafruit IO dashboard:
+✓ temperature
+✓ humidity
+✓ light
+✓ pir (motion)
+✓ fan
+✓ rgb_light
+✓ lcd_display
+
+STEP 5: PUBLISH SENSOR DATA
+----------------------------
+Read sensor data and publish to Adafruit IO:
+
+```python
+import time
+from dht20 import DHT20
+
+# Initialize DHT20 sensor
+dht20 = DHT20()
+
+while True:
+    # Read temperature and humidity
+    temperature = dht20.read_temperature()
+    humidity = dht20.read_humidity()
+    
+    # Publish to Adafruit IO
+    client.publish("temperature", temperature)
+    client.publish("humidity", humidity)
+    
+    # Wait 10 seconds before next reading
+    time.sleep(10)
+```
+
+STEP 6: SUBSCRIBE TO CONTROL COMMANDS
+--------------------------------------
+Listen for commands from the web app:
+
+```python
+def message_handler(client, feed_id, payload):
+    """Handle incoming MQTT messages"""
+    if feed_id == "fan":
+        if payload == "ON":
+            turn_fan_on()
+        elif payload == "OFF":
+            turn_fan_off()
+    elif feed_id == "rgb_light":
+        # Parse color value and set RGB LED
+        set_rgb_color(payload)
+
+# Set message handler
+client.on_message = message_handler
+
+# Subscribe to control feeds
+client.subscribe("fan")
+client.subscribe("rgb_light")
+client.subscribe("lcd_display")
+
+# Start listening
+client.loop_background()
+```
+
+STEP 7: DATA FLOW DIAGRAM
+--------------------------
+YoloBit + Sensors → MQTT Protocol → Adafruit IO → Web App
+                    ⬇️ ⬆️
+Bidirectional communication: sensors send data up, web app sends commands down
+
+STEP 8: TESTING YOUR CONNECTION
+--------------------------------
+Verify everything is working:
+☐ YoloBit shows "Connected" on LCD display
+☐ Adafruit IO feeds show data updating in real-time
+☐ Web app dashboard displays current sensor values
+☐ Toggling devices in web app controls physical devices
+☐ Automation rules trigger correctly based on sensor data

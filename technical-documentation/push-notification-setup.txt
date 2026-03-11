@@ -1,0 +1,45 @@
+UNDERSTANDING PUSH NOTIFICATIONS
+=================================
+
+Learn how push notifications keep you updated about your smart home
+
+WHAT ARE PUSH NOTIFICATIONS?
+-----------------------------
+Push notifications are alerts that appear on your device even when the app is closed. 
+They keep you informed about important events in your smart home.
+
+Examples: Motion detected alerts, temperature warnings, device offline notifications
+
+HOW PUSH NOTIFICATIONS WORK
+----------------------------
+IoT Device (Sensor Triggers) → Cloud Server → Firebase/APNS → Your Phone
+
+Bidirectional communication ensures real-time alerts
+
+TYPES OF NOTIFICATIONS
+-----------------------
+
+Security Alerts ⚠️
+- Motion detected in Living Room while you're away
+- Door opened at 2:30 AM
+
+Environmental Alerts 🌡️
+- Temperature exceeded 35°C in Bedroom
+- Smoke detected in Kitchen
+
+Device Status 💡
+- Bedroom fan went offline
+- Living Room light turned on by automation
+
+System Notifications ℹ️
+- New member joined your home
+- Automation rule 'Goodnight' activated
+
+NOTIFICATION SETTINGS
+---------------------
+Customize which notifications you receive:
+☑ Motion alerts
+☑ Temperature alerts
+☑ Device offline alerts
+☐ Automation notifications
+☐ Email notifications
