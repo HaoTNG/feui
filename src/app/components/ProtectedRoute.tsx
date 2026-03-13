@@ -8,22 +8,24 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles = ["owner", "family", "guest"] }: ProtectedRouteProps) {
-  const { userRole } = useApp();
+  const { user } = useApp();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If user is guest and trying to access non-guest routes, redirect to guest dashboard
-    if (userRole === "guest" && !allowedRoles.includes("guest")) {
+    if (!user?.isAuthenticated) {
+      navigate("/auth/login");
+      return;
+    }
+    
+    if (user.role === "guest" && !allowedRoles.includes("guest")) {
       navigate("/guest");
     }
-    // If user is not allowed to access this route
-    else if (!allowedRoles.includes(userRole)) {
+    else if (!allowedRoles.includes(user.role)) {
       navigate("/");
     }
-  }, [userRole, allowedRoles, navigate]);
+  }, [user, allowedRoles, navigate]);
 
-  // If user doesn't have permission, don't render anything (redirect will happen)
-  if (!allowedRoles.includes(userRole)) {
+  if (!user?.isAuthenticated || !allowedRoles.includes(user.role)) {
     return null;
   }
 

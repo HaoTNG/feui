@@ -8,7 +8,7 @@ interface ProfileDropdownProps {
 }
 
 export function ProfileDropdown({ onClose }: ProfileDropdownProps) {
-  const { userProfile, userRole, isDarkMode, setTheme, theme } = useApp();
+  const { userProfile, userRole, isDarkMode, setTheme, theme, logout } = useApp();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -25,6 +25,7 @@ export function ProfileDropdown({ onClose }: ProfileDropdownProps) {
 
   const handleLogout = () => {
     onClose();
+    logout();
     navigate("/auth/login");
   };
 

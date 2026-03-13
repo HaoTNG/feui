@@ -1,21 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { Eye, EyeOff, Home } from "lucide-react";
+import { Eye, EyeOff, Home, Check, X } from "lucide-react";
 
 export function ResetPassword() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isValidToken, setIsValidToken] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [resetComplete, setResetComplete] = useState(false);
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('token');
+    // For demo, we'll accept any URL or no token
+    if (window.location.search && !token) {
+      setIsValidToken(false);
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock password reset
-    navigate("/auth/login");
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsLoading(false);
+    setResetComplete(true);
   };
+
+  if (!isValidToken) {
+    return (
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Link</h2>
+          <p className="text-gray-600 mb-6">
+            This password reset link is invalid or has expired.
+          </p>
+          <Link to="/auth/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
+            Request a new link
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (resetComplete) {
+    return (
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset</h2>
+          <p className="text-gray-600 mb-6">
+            Your password has been successfully reset.
+          </p>
+          <Link to="/auth/login" className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            Log In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
@@ -83,9 +134,17 @@ export function ResetPassword() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          disabled={isLoading}
+          className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white`}
         >
-          Reset Password
+          {isLoading ? (
+            <>
+              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Resetting...
+            </>
+          ) : (
+            "Reset Password"
+          )}
         </button>
       </form>
 

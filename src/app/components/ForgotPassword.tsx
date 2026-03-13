@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Home } from "lucide-react";
+import { Home, Check } from "lucide-react";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsLoading(false);
     setSubmitted(true);
   };
 
@@ -26,6 +30,21 @@ export function ForgotPassword() {
             : "Enter your email to receive a password reset link"}
         </p>
       </div>
+
+      {submitted && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Check className="w-5 h-5 text-green-600" />
+            <p className="text-green-800 font-medium">Reset link sent!</p>
+          </div>
+          <p className="text-sm text-green-700">
+            Check <strong>{email}</strong> for password reset instructions.
+          </p>
+          <p className="text-xs text-green-600 mt-2">
+            (Demo mode: In production, an email would be sent. For testing, click the link below.)
+          </p>
+        </div>
+      )}
 
       {!submitted ? (
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -46,17 +65,24 @@ export function ForgotPassword() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={isLoading}
+            className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white`}
           >
-            Send Reset Link
+            {isLoading ? (
+              <>
+                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Sending...
+              </>
+            ) : (
+              "Send Reset Link"
+            )}
           </button>
         </form>
       ) : (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-5">
-          <p className="text-green-800 text-center">
-            If an account exists with <strong>{email}</strong>, you will receive a password reset
-            link shortly.
-          </p>
+        <div className="mt-4 text-center">
+          <Link to="/auth/reset-password" className="text-sm text-blue-600 hover:text-blue-700">
+            Demo: Continue to reset password →
+          </Link>
         </div>
       )}
 

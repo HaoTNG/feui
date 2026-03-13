@@ -232,7 +232,15 @@ interface AppContextType {
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
   
-  // User role
+  // Authentication & User
+  user: {
+    isAuthenticated: boolean;
+    role: UserRole;
+    email: string;
+    name: string;
+  } | null;
+  login: (email: string, password: string, rememberMe: boolean) => boolean;
+  logout: () => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   
@@ -606,7 +614,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>(initialAutomationRules);
   const [theme, setThemeState] = useState<"light" | "dark" | "auto">("light");
-  const [userRole, setUserRole] = useState<UserRole>("owner");
+  
+  // Authentication State - Load from storage on mount
+  const [user, setUser] = useState<{
+    isAuthenticated: boolean;
+    role: UserRole;
+    email: string;
+    name: string;
+  } | null>(() => {
+    const saved = localStorage.getItem('smartHome_user');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    const sessionSaved = sessionStorage.getItem('smartHome_user');
+    if (sessionSaved) {
+      return JSON.parse(sessionSaved);
+    }
+    return {
+      isAuthenticated: true,
+      role: 'owner' as UserRole,
+      email: 'demo@example.com',
+      name: 'Demo User'
+    };
+  });
+  
   const [guestAccess, setGuestAccess] = useState<GuestAccess>({ 
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
     allowedRooms: ["living-room", "kitchen"] // Guest can access Living Room and Kitchen
@@ -628,6 +659,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
 
   const isDarkMode = theme === "dark";
+  
+  // Login function
+  const login = (email: string, password: string, rememberMe: boolean) => {
+    let role: UserRole = 'family';
+    if (email.toLowerCase().includes('owner')) role = 'owner';
+    else if (email.toLowerCase().includes('guest')) role = 'guest';
+    
+    const userData = {
+      isAuthenticated: true,
+      role,
+      email,
+      name: email.split('@')[0],
+    };
+    
+    setUser(userData);
+    
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('smartHome_user', JSON.stringify(userData));
+    
+    if (rememberMe) {
+      sessionStorage.removeItem('smartHome_user');
+    } else {
+      localStorage.removeItem('smartHome_user');
+    }
+    
+    return true;
+  };
+  
+  // Logout function
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('smartHome_user');
+    sessionStorage.removeItem('smartHome_user');
+  };
+  
+  // Session timeout warning (24 hours)
+  useEffect(() => {
+    if (!user?.isAuthenticated) return;
+    
+    const timeoutId = setTimeout(() => {
+      const shouldStay = window.confirm(
+        "Your session will expire in 30 minutes due to inactivity. Stay logged in?"
+      );
+      
+      if (!shouldStay) {
+        logout();
+      }
+    }, 23.5 * 60 * 60 * 1000); // 23.5 hours
+    
+    return () => clearTimeout(timeoutId);
+  }, [user]);
 
   useEffect(() => {
     // Apply dark mode class to body
@@ -761,11 +843,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     console.log(`${type.toUpperCase()}: ${message}`);
   };
 
-  const canAddDevices = userRole === "owner";
-  const canManageMembers = userRole === "owner";
-  const canCreateAutomation = userRole === "owner";
-  const canViewCameras = userRole === "owner" || userRole === "family";
-  const hasFullAccess = userRole === "owner";
+  const canAddDevices = user?.role === "owner";
+  const canManageMembers = user?.role === "owner";
+  const canCreateAutomation = user?.role === "owner";
+  const canViewCameras = user?.role === "owner" || user?.role === "family";
+  const hasFullAccess = user?.role === "owner";
 
   const getCurrentTemperature = () => {
     return temperatureSimulation.enabled ? temperatureSimulation.value : devices.find(d => d.type === "temperature")?.temperature || 24.5;
@@ -819,8 +901,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         theme,
         setTheme,
         isDarkMode,
-        userRole,
-        setUserRole,
+        // Authentication
+        user: user,
+        login: login,
+        logout: logout,
+        userRole: user?.role || 'owner',
+        setUserRole: (role: UserRole) => {
+          if (user) {
+            const updatedUser = { ...user, role };
+            setUser(updatedUser);
+            if (localStorage.getItem('smartHome_user')) {
+              localStorage.setItem('smartHome_user', JSON.stringify(updatedUser));
+            }
+            if (sessionStorage.getItem('smartHome_user')) {
+              sessionStorage.setItem('smartHome_user', JSON.stringify(updatedUser));
+            }
+          }
+        },
         guestAccess,
         setGuestAccess,
         canAddDevices,

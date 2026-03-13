@@ -1,16 +1,27 @@
 import { useState } from "react";
-import { Bell, Moon, Globe, Shield, Zap, Database, UserCircle } from "lucide-react";
-import { toast } from "sonner";
+import { Bell, Moon, Globe, Shield, Zap, Database, UserCircle, HardDrive, Cpu } from "lucide-react";
 import { useApp, type UserRole } from "../contexts/AppContext";
+import { useToast } from "../contexts/ToastContext";
 
 export function Settings() {
   const { theme, setTheme, isDarkMode, userRole, setUserRole } = useApp();
+  const { showToast } = useToast();
   const [settings, setSettings] = useState({
     notifications: {
-      deviceAlerts: true,
+      hubEvents: true,
+      moduleEvents: true,
+      hubOfflineAlerts: true,
+      moduleOfflineAlerts: true,
       motionDetection: true,
       temperatureAlerts: true,
       systemUpdates: false,
+    },
+    hubSettings: {
+      autoFirmwareUpdate: false,
+      firmwareUpdateBehavior: "notify" as "auto" | "notify" | "manual",
+      autoDiscovery: true,
+      moduleAutoDetection: true,
+      offlineNotificationDelay: 30, // minutes
     },
     appearance: {
       compactMode: false,
@@ -31,7 +42,7 @@ export function Settings() {
       ...settings,
       notifications: { ...settings.notifications, [key]: value },
     });
-    toast.success("Settings updated");
+    showToast("Settings updated", "success");
   };
 
   const handleAppearanceChange = (key: string, value: any) => {
@@ -39,12 +50,12 @@ export function Settings() {
       ...settings,
       appearance: { ...settings.appearance, [key]: value },
     });
-    toast.success("Settings updated");
+    showToast("Settings updated", "success");
   };
 
   const handleThemeChange = (newTheme: "light" | "dark" | "auto") => {
     setTheme(newTheme);
-    toast.success(`Theme changed to ${newTheme}`);
+    showToast(`Theme changed to ${newTheme}`, "success");
   };
 
   const handleAutomationChange = (key: string, value: boolean) => {
@@ -52,7 +63,7 @@ export function Settings() {
       ...settings,
       automation: { ...settings.automation, [key]: value },
     });
-    toast.success("Settings updated");
+    showToast("Settings updated", "success");
   };
 
   const handlePrivacyChange = (key: string, value: boolean) => {
@@ -60,12 +71,20 @@ export function Settings() {
       ...settings,
       privacy: { ...settings.privacy, [key]: value },
     });
-    toast.success("Settings updated");
+    showToast("Settings updated", "success");
+  };
+
+  const handleHubSettingsChange = (key: string, value: any) => {
+    setSettings({
+      ...settings,
+      hubSettings: { ...settings.hubSettings, [key]: value },
+    });
+    showToast("Hub settings updated", "success");
   };
 
   const handleUserRoleChange = (newRole: UserRole) => {
     setUserRole(newRole);
-    toast.success(`User role changed to ${newRole}`);
+    showToast(`User role changed to ${newRole}`, "success");
   };
 
   return (
@@ -102,10 +121,28 @@ export function Settings() {
 
         <div className="space-y-4">
           <SettingToggle
-            label="Device Alerts"
-            description="Get notified when devices go offline or need attention"
-            checked={settings.notifications.deviceAlerts}
-            onChange={(value) => handleNotificationChange("deviceAlerts", value)}
+            label="Hub Events"
+            description="Get notified about hub status changes and connectivity issues"
+            checked={settings.notifications.hubEvents}
+            onChange={(value) => handleNotificationChange("hubEvents", value)}
+          />
+          <SettingToggle
+            label="Module Events"
+            description="Receive notifications for module status and value changes"
+            checked={settings.notifications.moduleEvents}
+            onChange={(value) => handleNotificationChange("moduleEvents", value)}
+          />
+          <SettingToggle
+            label="Hub Offline Alerts"
+            description="Alert when a hub goes offline or loses connection"
+            checked={settings.notifications.hubOfflineAlerts}
+            onChange={(value) => handleNotificationChange("hubOfflineAlerts", value)}
+          />
+          <SettingToggle
+            label="Module Offline Alerts"
+            description="Alert when a module becomes unresponsive"
+            checked={settings.notifications.moduleOfflineAlerts}
+            onChange={(value) => handleNotificationChange("moduleOfflineAlerts", value)}
           />
           <SettingToggle
             label="Motion Detection"
@@ -206,6 +243,93 @@ export function Settings() {
             checked={settings.appearance.compactMode}
             onChange={(value) => handleAppearanceChange("compactMode", value)}
           />
+        </div>
+      </div>
+
+      {/* Hub Settings */}
+      <div className={`rounded-xl shadow-sm border p-6 ${
+        isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+      }`}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
+          }`}>
+            <HardDrive className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Hub Settings
+            </h2>
+            <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              Configure YoloBit hub behavior and management
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? "text-gray-300" : "text-gray-700"
+            }`}>
+              Firmware Update Behavior
+            </label>
+            <select
+              value={settings.hubSettings.firmwareUpdateBehavior}
+              onChange={(e) => handleHubSettingsChange("firmwareUpdateBehavior", e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-lg border ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
+            >
+              <option value="auto">Auto-update (recommended)</option>
+              <option value="notify">Notify me before updating</option>
+              <option value="manual">Manual updates only</option>
+            </select>
+            <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              How hubs should handle firmware updates
+            </p>
+          </div>
+
+          <SettingToggle
+            label="Hub Discovery"
+            description="Automatically discover new hubs on the network"
+            checked={settings.hubSettings.autoDiscovery}
+            onChange={(value) => handleHubSettingsChange("autoDiscovery", value)}
+          />
+
+          <SettingToggle
+            label="Module Auto-Detection"
+            description="Automatically detect and configure new modules connected to hubs"
+            checked={settings.hubSettings.moduleAutoDetection}
+            onChange={(value) => handleHubSettingsChange("moduleAutoDetection", value)}
+          />
+
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? "text-gray-300" : "text-gray-700"
+            }`}>
+              Offline Notification Delay
+            </label>
+            <select
+              value={settings.hubSettings.offlineNotificationDelay}
+              onChange={(e) => handleHubSettingsChange("offlineNotificationDelay", Number(e.target.value))}
+              className={`w-full px-4 py-2.5 rounded-lg border ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
+            >
+              <option value={5}>5 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={60}>1 hour</option>
+              <option value={120}>2 hours</option>
+            </select>
+            <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              Wait time before notifying about offline hubs/modules
+            </p>
+          </div>
         </div>
       </div>
 

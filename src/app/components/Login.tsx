@@ -1,20 +1,71 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Eye, EyeOff, Home } from "lucide-react";
+import { useApp } from "../contexts/AppContext";
+import { DemoCredentials } from "./DemoCredentials";
 
 export function Login() {
   const navigate = useNavigate();
+  const { login } = useApp();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateField = (field: string, value: string) => {
+    const newErrors = { ...errors };
+    
+    if (field === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!value) {
+        newErrors.email = "Email is required";
+      } else if (!emailRegex.test(value)) {
+        newErrors.email = "Please enter a valid email address";
+      } else {
+        delete newErrors.email;
+      }
+    }
+    
+    if (field === 'password') {
+      if (!value) {
+        newErrors.password = "Password is required";
+      } else if (value.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      } else {
+        delete newErrors.password;
+      }
+    }
+    
+    setErrors(newErrors);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - in production would authenticate with backend
-    navigate("/");
+    
+    if (!formData.email || !formData.password) {
+      setError("Please fill in all fields");
+      return;
+    }
+    
+    setIsLoading(true);
+    setError("");
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const success = login(formData.email, formData.password, formData.rememberMe);
+    
+    if (success) {
+      navigate("/");
+    } else {
+      setError("Invalid email or password");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -29,6 +80,12 @@ export function Login() {
         <p className="text-gray-600">Log in to your account</p>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-5">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -39,10 +96,15 @@ export function Login() {
             type="email"
             placeholder="your@email.com"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
-            required
+            onChange={(e) => {
+              setFormData({ ...formData, email: e.target.value });
+              validateField('email', e.target.value);
+            }}
+            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
           />
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+          )}
         </div>
 
         <div>
@@ -55,9 +117,11 @@ export function Login() {
               type={showPassword ? "text" : "password"}
               placeholder="your password"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
-              required
+              onChange={(e) => {
+                setFormData({ ...formData, password: e.target.value });
+                validateField('password', e.target.value);
+              }}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
             />
             <button
               type="button"
@@ -67,6 +131,9 @@ export function Login() {
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+          {errors.password && (
+            <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
@@ -86,11 +153,21 @@ export function Login() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          disabled={isLoading}
+          className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"} text-white`}
         >
-          Log In
+          {isLoading ? (
+            <>
+              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Logging in...
+            </>
+          ) : (
+            "Log In"
+          )}
         </button>
       </form>
+
+      <DemoCredentials />
 
       <p className="text-center mt-6 text-gray-600">
         Don't have an account?{" "}

@@ -34,7 +34,6 @@ const navigation = [
   { name: "Control", path: "/devices", icon: Radio, roles: ["owner", "family"] },
   { name: "History", path: "/history", icon: History, roles: ["owner", "family"] },
   { name: "Homes", path: "/homes", icon: Building2, roles: ["owner"] },
-  { name: "Rooms", path: "/rooms", icon: Home, roles: ["owner", "family"] },
   { name: "Automation", path: "/automation", icon: Bot, roles: ["owner", "family"] },
   { name: "Help", path: "/help", icon: HelpCircle, roles: ["owner", "family", "guest"] },
   { name: "Settings", path: "/settings", icon: Settings, roles: ["owner", "family"] },
@@ -54,26 +53,37 @@ export function MainLayout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const { unreadNotificationCount, userRole, isDarkMode, sidebarCollapsed, toggleSidebar, userProfile } = useApp();
+  const { unreadNotificationCount, userRole, isDarkMode, sidebarCollapsed, toggleSidebar, userProfile, user: userData, logout } = useApp();
 
-  // Redirect guests to their simplified dashboard
+  // Redirect to login if not authenticated
   useEffect(() => {
+    if (!userData?.isAuthenticated) {
+      navigate("/auth/login");
+      return;
+    }
+
+    // Redirect guests to their simplified dashboard
     if (userRole === "guest" && location.pathname !== "/guest") {
       navigate("/guest");
     }
-  }, [userRole, location.pathname, navigate]);
+  }, [userData, navigate, userRole, location.pathname]);
+
+  // Don't render anything until authenticated
+  if (!userData?.isAuthenticated) {
+    return null;
+  }
 
   // If user is guest, don't render the full layout
   if (userRole === "guest") {
     return <Outlet />;
   }
 
-  // Mock user data - in production would come from auth context
+  // User data from auth context
   const user = {
-    name: userRole === "owner" ? "John Smith (Owner)" : "Jane Doe (Family)",
-    email: userRole === "owner" ? "john@example.com" : "jane@example.com",
-    avatar: userRole === "owner" ? "JS" : "JD",
-    role: userRole,
+    name: userData?.name || (userData?.role === "owner" ? "John Smith" : "Jane Doe"),
+    email: userData?.email || (userData?.role === "owner" ? "john@example.com" : "jane@example.com"),
+    avatar: userData?.name ? userData.name.split(' ').map(n => n[0]).join('') : (userData?.role === "owner" ? "JS" : "JD"),
+    role: userData?.role,
     unreadNotifications: unreadNotificationCount,
   };
 
@@ -85,6 +95,7 @@ export function MainLayout() {
   };
 
   const handleLogout = () => {
+    logout();
     navigate("/auth/login");
   };
 
