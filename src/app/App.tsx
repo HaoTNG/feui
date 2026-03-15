@@ -22,6 +22,7 @@ import { Settings } from "./components/Settings";
 import { Automation } from "./components/Automation";
 import { GuestDashboard } from "./components/GuestDashboard";
 import { Homes } from "./components/Homes";
+import { HomeDetail } from "./components/HomeDetail";
 import Help from "./components/Help";
 
 const router = createBrowserRouter([
@@ -58,7 +59,9 @@ const router = createBrowserRouter([
           { path: "settings", element: <Settings /> },
           { path: "guest", element: <GuestDashboard /> },
           { path: "homes", element: <Homes /> },
+          { path: "homes/:homeId", element: <HomeDetail /> },
           { path: "rooms", element: <Rooms /> },
+          { path: "rooms/:roomId", element: <RoomDetail /> },
           { path: "room-management", element: <RoomManagement /> },
           { path: "room-management/:roomId", element: <RoomDetail /> },
         ],

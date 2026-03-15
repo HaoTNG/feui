@@ -1,142 +1,301 @@
-import { Home, Plus, Edit2, Trash2, Check, HardDrive, Cpu, AlertTriangle, Wifi, WifiOff } from "lucide-react";
-import { useState } from "react";
+import { Home, Plus, Trash2, ChevronRight, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { useApp } from "../contexts/AppContext";
-import type { Home as HomeType, HomeType as HomeTypeEnum } from "../contexts/AppContext";
+import { homeService } from "../api/services/homeService";
+import { roomService } from "../api/services/roomService";
+import { deviceService } from "../api/services/deviceService";
+import { toast } from "sonner";
 
 export function Homes() {
-  const { homes, isDarkMode, addHome, updateHome, deleteHome, hubs, modules } = useApp();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingHome, setEditingHome] = useState<HomeType | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { isDarkMode, userRole } = useApp();
+  const navigate = useNavigate();
+  const [homes, setHomes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newHomeName, setNewHomeName] = useState("");
+  const [creatingHome, setCreatingHome] = useState(false);
+  const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const handleAddHome = (home: Omit<HomeType, "id" | "createdAt" | "roomCount" | "deviceCount">) => {
-    const newHome: HomeType = {
-      ...home,
-      id: `home-${Date.now()}`,
-      createdAt: new Date(),
-      roomCount: 0,
-      deviceCount: 0,
-    };
-    addHome(newHome);
-    setShowAddModal(false);
+  useEffect(() => {
+    fetchHomes();
+  }, []);
+
+  const fetchHomes = async () => {
+    try {
+      setLoading(true);
+      const homesData = await homeService.getHomes();
+      
+      // Fetch rooms and devices counts for each home
+      const homesWithCounts = await Promise.all(
+        (homesData || []).map(async (home) => {
+          try {
+            const [rooms, devices] = await Promise.all([
+              roomService.getRoomsByHome(home.id),
+              deviceService.getDevicesByHome(home.id),
+            ]);
+            return {
+              ...home,
+              roomCount: rooms?.length || 0,
+              deviceCount: devices?.length || 0,
+            };
+          } catch (error) {
+            console.error(`Failed to fetch counts for home ${home.id}:`, error);
+            return {
+              ...home,
+              roomCount: 0,
+              deviceCount: 0,
+            };
+          }
+        })
+      );
+      
+      setHomes(homesWithCounts);
+    } catch (error) {
+      console.error("Failed to fetch homes:", error);
+      toast.error("Failed to load homes");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditHome = (home: HomeType) => {
-    updateHome(home.id, home);
-    setEditingHome(null);
+  const handleCreateHome = async () => {
+    if (!newHomeName.trim()) {
+      toast.error("Please enter a home name");
+      return;
+    }
+
+    setCreatingHome(true);
+    try {
+      const newHome = await homeService.createHome(newHomeName);
+      setHomes([...homes, newHome]);
+      setNewHomeName("");
+      setShowCreateModal(false);
+      toast.success("Home created successfully");
+    } catch (error) {
+      console.error("Failed to create home:", error);
+      toast.error("Failed to create home");
+    } finally {
+      setCreatingHome(false);
+    }
   };
 
-  const handleDeleteHome = (id: string) => {
-    deleteHome(id);
-    setDeleteConfirm(null);
+  const handleDeleteHome = async () => {
+    if (!selectedHomeId) return;
+
+    try {
+      await homeService.deleteHome(selectedHomeId);
+      setHomes(homes.filter(h => h.id !== selectedHomeId));
+      setShowDeleteConfirm(false);
+      setSelectedHomeId(null);
+      toast.success("Home deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete home:", error);
+      toast.error("Failed to delete home");
+    }
   };
 
-  // Calculate stats for each home
-  const getHomeStats = (homeId: string) => {
-    const homeHubs = hubs.filter(h => h.homeId === homeId);
-    const homeModules = modules.filter(m => m.homeId === homeId);
-    const onlineHubs = homeHubs.filter(h => h.status === "online").length;
-    const offlineHubs = homeHubs.length - onlineHubs;
-    const onlineModules = homeModules.filter(m => m.status === "online").length;
-    const offlineModules = homeModules.length - onlineModules;
-
-    // Mock alerts for now
-    const alerts = [
-      offlineHubs > 0 ? `${offlineHubs} hub(s) offline` : null,
-      offlineModules > 0 ? `${offlineModules} module(s) offline` : null,
-    ].filter(Boolean);
-
-    return {
-      totalHubs: homeHubs.length,
-      onlineHubs,
-      offlineHubs,
-      totalModules: homeModules.length,
-      onlineModules,
-      offlineModules,
-      alerts,
-    };
-  };
+  const isOwner = userRole === "owner";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className={`max-w-7xl mx-auto space-y-6`}>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
             My Homes
           </h1>
-          <p className={isDarkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>
-            Manage all your properties
+          <p className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+            Manage your smart homes
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add New Home
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Create Home
+          </button>
+        )}
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className={`rounded-xl p-8 text-center ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Loading homes...</p>
+        </div>
+      )}
+
       {/* Homes Grid */}
-      {homes.length === 0 ? (
-        <div className={`rounded-xl border p-12 text-center ${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        }`}>
-          <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-            isDarkMode ? "bg-gray-700" : "bg-gray-100"
+      {!loading && (
+        <>
+          {homes.length === 0 ? (
+            <div className={`rounded-xl p-12 text-center ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-50 border border-gray-200"}`}>
+              <Home className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`} />
+              <p className={`text-lg font-medium mb-4 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                No homes yet
+              </p>
+              <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Create your first home to get started with smart home automation
+              </p>
+              {isOwner && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Home
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {homes.map((home) => (
+                <div
+                  key={home.id}
+                  className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-all cursor-pointer group ${
+                    isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                  }`}
+                  onClick={() => navigate(`/homes/${home.id}`)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`p-3 rounded-lg ${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"}`}>
+                      <Home className="w-6 h-6 text-blue-600" />
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedHomeId(home.id);
+                          setShowDeleteConfirm(true);
+                        }}
+                        className={`p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${
+                          isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    )}
+                  </div>
+
+                  <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                    {home.name}
+                  </h3>
+
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex gap-4 text-sm">
+                      <div>
+                        <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Rooms</p>
+                        <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          {home.roomCount || 0}
+                        </p>
+                      </div>
+                      <div>
+                        <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Devices</p>
+                        <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          {home.deviceCount || 0}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`w-5 h-5 group-hover:translate-x-1 transition-transform ${
+                      isDarkMode ? "text-gray-500" : "text-gray-400"
+                    }`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Create Home Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-md w-full rounded-xl shadow-2xl p-6 ${
+            isDarkMode ? "bg-gray-800" : "bg-white"
           }`}>
-            <Home className={`w-10 h-10 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`} />
+            <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Create New Home
+            </h3>
+
+            <input
+              type="text"
+              value={newHomeName}
+              onChange={(e) => setNewHomeName(e.target.value)}
+              placeholder="Enter home name"
+              className={`w-full px-4 py-3 rounded-lg border mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              }`}
+              autoFocus
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewHomeName("");
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium border-2 transition-colors ${
+                  isDarkMode
+                    ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateHome}
+                disabled={creatingHome}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+              >
+                {creatingHome ? "Creating..." : "Create"}
+              </button>
+            </div>
           </div>
-          <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-            You haven't added any homes yet
-          </h3>
-          <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Add your first home to start managing your smart devices
-          </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            Add Your First Home
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {homes.map((home) => {
-            const stats = getHomeStats(home.id);
-            return (
-              <HomeCard
-                key={home.id}
-                home={home}
-                stats={stats}
-                onEdit={() => setEditingHome(home)}
-                onDelete={() => setDeleteConfirm(home.id)}
-              />
-            );
-          })}
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      {(showAddModal || editingHome) && (
-        <HomeModal
-          home={editingHome}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingHome(null);
-          }}
-          onSave={editingHome ? handleEditHome : handleAddHome}
-        />
-      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-sm w-full rounded-xl shadow-2xl p-6 ${
+            isDarkMode ? "bg-gray-800" : "bg-white"
+          }`}>
+            <h3 className={`text-xl font-semibold mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Delete Home?
+            </h3>
+            <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              This action cannot be undone. All rooms and devices in this home will be deleted.
+            </p>
 
-      {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <DeleteConfirmModal
-          homeName={homes.find(h => h.id === deleteConfirm)?.name || ""}
-          onConfirm={() => handleDeleteHome(deleteConfirm)}
-          onCancel={() => setDeleteConfirm(null)}
-        />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedHomeId(null);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium border-2 transition-colors ${
+                  isDarkMode
+                    ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteHome}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

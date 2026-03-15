@@ -12,7 +12,7 @@ const USE_MOCK_API = (import.meta as any).env.VITE_USE_MOCK === 'true';
 
 // Create axios instance
 const axiosInstance: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: '/api', // Prefix all requests with /api for Vite proxy to intercept
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -23,9 +23,14 @@ const axiosInstance: AxiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('authToken');
+    console.log('[Interceptor] Token from localStorage:', token ? 'EXISTS' : 'NOT FOUND');
     if (token) {
+      console.log('[Interceptor] Adding token to request header');
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.log('[Interceptor] No token found in localStorage');
     }
+    console.log('[Interceptor] Final Authorization header:', config.headers.Authorization || 'NOT SET');
     return config;
   },
   (error: AxiosError) => {
@@ -81,13 +86,16 @@ export async function apiRequest<T = any>(
   data?: any
 ): Promise<ApiResponse<T>> {
   try {
+    console.log(`[API] ${method.toUpperCase()} ${API_BASE_URL}${url}`, data ? 'with data:' : '');
     const response = await axiosInstance({
       method,
       url,
       data,
     });
+    console.log(`[API] Response: ${method.toUpperCase()} ${url}`, response.data);
     return response.data as ApiResponse<T>;
   } catch (error) {
+    console.error(`[API] Error: ${method.toUpperCase()} ${url}`, error);
     if (axios.isAxiosError(error)) {
       throw {
         statusCode: error.response?.status,

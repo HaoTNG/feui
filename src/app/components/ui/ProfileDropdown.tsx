@@ -69,7 +69,7 @@ export function ProfileDropdown({ onClose }: ProfileDropdownProps) {
           
           <div className="flex-1 min-w-0">
             <div className={`font-semibold truncate ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-              {userProfile.fullName}
+              {userProfile.name}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>

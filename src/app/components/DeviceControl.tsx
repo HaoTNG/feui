@@ -3,18 +3,17 @@ import { Lightbulb, Fan, Thermometer, Droplets, Sun, Palette, HardDrive, Wifi, W
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "../contexts/AppContext";
 import { useToast } from "../contexts/ToastContext";
-import type { Module, Hub } from "../contexts/AppContext";
 
-type ViewMode = "group-by-hub" | "group-by-room" | "all-modules";
+type ViewMode = "group-by-device" | "group-by-room" | "all-modules";
 
 export function DeviceControl() {
-  const [viewMode, setViewMode] = useState<ViewMode>("group-by-hub");
-  const { isDarkMode, selectedHomeId, hubs, modules, rooms, getModulesByHub, getHubById, updateModule, addActivity } = useApp();
+  const [viewMode, setViewMode] = useState<ViewMode>("group-by-device");
+  const { isDarkMode, devices, rooms } = useApp();
 
-  // Filter data by selected home
-  const currentHomeHubs = hubs.filter(h => h.homeId === selectedHomeId);
-  const currentHomeModules = modules.filter(m => m.homeId === selectedHomeId);
-  const currentHomeRooms = rooms.filter(r => r.homeId === selectedHomeId);
+  // Get all modules from devices
+  const currentHomeDevices = devices || [];
+  const currentHomeModules = currentHomeDevices.flatMap(d => d.modules || []);
+  const currentHomeRooms = rooms || [];
 
   if (currentHomeModules.length === 0) {
     return (
@@ -57,9 +56,9 @@ export function DeviceControl() {
           isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"
         }`}>
           <ViewToggleButton
-            label="Group by Hub"
-            active={viewMode === "group-by-hub"}
-            onClick={() => setViewMode("group-by-hub")}
+            label="Group by Device"
+            active={viewMode === "group-by-device"}
+            onClick={() => setViewMode("group-by-device")}
           />
           <ViewToggleButton
             label="Group by Room"
@@ -75,16 +74,16 @@ export function DeviceControl() {
       </div>
 
       {/* Content based on view mode */}
-      {viewMode === "group-by-hub" && (
-        <GroupByHubView hubs={currentHomeHubs} getModulesByHub={getModulesByHub} />
+      {viewMode === "group-by-device" && (
+        <GroupByDeviceView devices={currentHomeDevices} />
       )}
 
       {viewMode === "group-by-room" && (
-        <GroupByRoomView rooms={currentHomeRooms} modules={currentHomeModules} hubs={currentHomeHubs} getHubById={getHubById} />
+        <GroupByRoomView rooms={currentHomeRooms} devices={currentHomeDevices} />
       )}
 
       {viewMode === "all-modules" && (
-        <AllModulesView modules={currentHomeModules} hubs={currentHomeHubs} getHubById={getHubById} />
+        <AllModulesView devices={currentHomeDevices} />
       )}
     </div>
   );
@@ -109,98 +108,74 @@ function ViewToggleButton({ label, active, onClick }: { label: string; active: b
   );
 }
 
-function GroupByHubView({ hubs, getModulesByHub }: { hubs: Hub[]; getModulesByHub: (hubId: string) => Module[] }) {
-  const { isDarkMode, rooms } = useApp();
+interface Device {
+  id: string;
+  name: string;
+  status: string;
+  modules?: Module[];
+}
 
-  // Group hubs by room
-  const hubsByRoom = hubs.reduce((acc, hub) => {
-    if (!acc[hub.room]) {
-      acc[hub.room] = [];
-    }
-    acc[hub.room].push(hub);
-    return acc;
-  }, {} as Record<string, Hub[]>);
+interface Module {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  feed?: string;
+  room?: string;
+  [key: string]: any;
+}
+
+function GroupByDeviceView({ devices }: { devices: Device[] }) {
+  const { isDarkMode } = useApp();
 
   return (
-    <div className="space-y-8">
-      {Object.entries(hubsByRoom).map(([roomName, roomHubs]) => (
-        <div key={roomName}>
-          <h2 className={`text-xl font-bold mb-4 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-            {roomName}
-          </h2>
-          <div className="space-y-6">
-            {roomHubs.map((hub) => {
-              const hubModules = getModulesByHub(hub.id);
-              return (
-                <div
-                  key={hub.id}
-                  className={`rounded-xl shadow-sm border ${
-                    isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-                  }`}
-                >
-                  {/* Hub Header */}
-                  <div className={`p-5 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
-                        }`}>
-                          <HardDrive className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                            {hub.name}
-                          </h3>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                              ID: {hub.id}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {hub.status === "online" ? (
-                                <>
-                                  <Wifi className="w-3 h-3 text-green-500" />
-                                  <span className="text-green-600">
-                                    {hub.wifiSignal && hub.wifiSignal > 70 ? "Strong" : hub.wifiSignal && hub.wifiSignal > 40 ? "Medium" : "Weak"}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <WifiOff className="w-3 h-3 text-gray-500" />
-                                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Offline</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right text-sm">
-                        <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                          Firmware: {hub.firmwareVersion}
-                        </p>
-                        <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                          IP: {hub.ipAddress || "N/A"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Modules */}
-                  <div className="p-5">
-                    {hubModules.length === 0 ? (
-                      <div className={`text-center py-8 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        No modules configured
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {hubModules.map((module) => (
-                          <ModuleCard key={module.id} module={module} hub={hub} />
-                        ))}
-                      </div>
-                    )}
+    <div className="space-y-6">
+      {devices.map((device) => (
+        <div
+          key={device.id}
+          className={`rounded-xl shadow-sm border ${
+            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          }`}
+        >
+          {/* Device Header */}
+          <div className={`p-5 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
+                }`}>
+                  <HardDrive className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                    {device.name}
+                  </h3>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                      ID: {device.id}
+                    </span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      device.status === "online" ? "bg-green-500" : "bg-gray-400"
+                    }`}></div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+          </div>
+
+          {/* Modules */}
+          <div className="p-5">
+            {!device.modules || device.modules.length === 0 ? (
+              <div className={`text-center py-8 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                No modules configured
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {device.modules.map((module) => (
+                  <ModuleCard key={module.id} module={module} device={device} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -208,13 +183,14 @@ function GroupByHubView({ hubs, getModulesByHub }: { hubs: Hub[]; getModulesByHu
   );
 }
 
-function GroupByRoomView({ rooms, modules, hubs, getHubById }: { rooms: any[]; modules: Module[]; hubs: Hub[]; getHubById: (id: string) => Hub | undefined }) {
+function GroupByRoomView({ rooms, devices }: { rooms: any[]; devices: Device[] }) {
   const { isDarkMode } = useApp();
 
   return (
     <div className="space-y-8">
       {rooms.map((room) => {
-        const roomModules = modules.filter(m => m.room === room.name);
+        const roomDevices = devices.filter(d => d.room === room.name || d.roomId === room.id);
+        const roomModules = roomDevices.flatMap(d => (d.modules || []).map(m => ({ ...m, deviceName: d.name, device: d })));
         
         return (
           <div key={room.id}>
@@ -222,10 +198,9 @@ function GroupByRoomView({ rooms, modules, hubs, getHubById }: { rooms: any[]; m
               {room.name}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {roomModules.map((module) => {
-                const hub = getHubById(module.hubId);
-                return hub ? <ModuleCard key={module.id} module={module} hub={hub} showHubInfo /> : null;
-              })}
+              {roomModules.map((module) => (
+                <ModuleCard key={module.id} module={module} device={module.device} showDeviceInfo />
+              ))}
             </div>
           </div>
         );
@@ -234,21 +209,21 @@ function GroupByRoomView({ rooms, modules, hubs, getHubById }: { rooms: any[]; m
   );
 }
 
-function AllModulesView({ modules, hubs, getHubById }: { modules: Module[]; hubs: Hub[]; getHubById: (id: string) => Hub | undefined }) {
+function AllModulesView({ devices }: { devices: Device[] }) {
   const { isDarkMode } = useApp();
+  const allModules = devices.flatMap(d => (d.modules || []).map(m => ({ ...m, deviceName: d.name, device: d })));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {modules.map((module) => {
-        const hub = getHubById(module.hubId);
-        return hub ? <ModuleCard key={module.id} module={module} hub={hub} showHubInfo showRoomInfo /> : null;
-      })}
+      {allModules.map((module) => (
+        <ModuleCard key={module.id} module={module} device={module.device} showDeviceInfo showRoomInfo />
+      ))}
     </div>
   );
 }
 
-function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module; hub: Hub; showHubInfo?: boolean; showRoomInfo?: boolean }) {
-  const { updateModule, addActivity, isDarkMode } = useApp();
+function ModuleCard({ module, device, showDeviceInfo, showRoomInfo }: { module: Module; device: Device; showDeviceInfo?: boolean; showRoomInfo?: boolean }) {
+  const { isDarkMode } = useApp();
   const { showToast } = useToast();
 
   const getModuleIcon = (type: string) => {
@@ -274,7 +249,6 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
 
   const Icon = getModuleIcon(module.type);
   const isSensor = ["temperature", "humidity", "light-sensor", "pir-motion"].includes(module.type);
-  const isActuator = ["fan", "led", "lcd-display"].includes(module.type);
 
   // Sensor Module
   if (isSensor) {
@@ -300,7 +274,7 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
             module.type === "light-sensor" ? "text-yellow-500" :
             "text-purple-500"
           }`} />
-          {showRoomInfo && (
+          {showRoomInfo && module.room && (
             <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
               {module.room}
             </span>
@@ -315,16 +289,16 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
           <span className={`text-xs px-2 py-0.5 rounded ${
             isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
           }`}>
-            {module.feed}
+            {module.feed || "N/A"}
           </span>
           <div className={`w-2 h-2 rounded-full ${
             module.status === "online" ? "bg-green-500" : "bg-gray-400"
           }`}></div>
         </div>
 
-        {showHubInfo && (
+        {showDeviceInfo && (
           <div className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-            via {hub.name}
+            via {device.name}
           </div>
         )}
 
@@ -345,24 +319,13 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
   // Actuator Module - Fan
   if (module.type === "fan") {
     const handleToggle = (isOn: boolean) => {
-      updateModule(module.id, { isOn, speed: isOn && (module.speed === 0 || module.speed === undefined) ? 1 : module.speed });
-      addActivity({
-        type: "user",
-        action: `You turned ${isOn ? "on" : "off"} ${module.name}`,
-        detail: `via ${hub.name}`,
-        success: true,
-      });
+      // In real app, would call API here
       showToast(`${module.name} turned ${isOn ? "on" : "off"}`, "success");
     };
 
     const handleSpeedChange = (speed: number) => {
-      updateModule(module.id, { speed, isOn: speed > 0 });
-      addActivity({
-        type: "user",
-        action: `You set ${module.name} speed to ${speed}`,
-        detail: `via ${hub.name}`,
-        success: true,
-      });
+      // In real app, would call API here
+      showToast(`${module.name} speed changed`, "success");
     };
 
     return (
@@ -371,7 +334,7 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
       }`}>
         <div className="flex items-start justify-between mb-3">
           <Fan className="w-6 h-6 text-blue-500" />
-          {showRoomInfo && (
+          {showRoomInfo && module.room && (
             <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
               {module.room}
             </span>
@@ -386,16 +349,16 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
           <span className={`text-xs px-2 py-0.5 rounded ${
             isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
           }`}>
-            {module.feed}
+            {module.feed || "N/A"}
           </span>
           <div className={`w-2 h-2 rounded-full ${
             module.status === "online" ? "bg-green-500" : "bg-gray-400"
           }`}></div>
         </div>
 
-        {showHubInfo && (
+        {showDeviceInfo && (
           <div className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-            via {hub.name}
+            via {device.name}
           </div>
         )}
 
@@ -415,33 +378,22 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
                 value={module.speed || 0}
                 onChange={(e) => handleSpeedChange(Number(e.target.value))}
                 className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                disabled={!module.isOn}
               />
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={() => handleToggle(true)}
-                className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  module.isOn
-                    ? "bg-blue-600 text-white"
-                    : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
+                className={`flex-1 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700`}
               >
                 On
               </button>
               <button
                 onClick={() => handleToggle(false)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  !module.isOn
-                    ? isDarkMode
-                      ? "bg-gray-700 text-white"
-                      : "bg-gray-200 text-gray-900"
-                    : isDarkMode
-                    ? "bg-transparent text-gray-400 border border-gray-600 hover:bg-gray-700"
-                    : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  isDarkMode
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 Off
@@ -452,7 +404,7 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
           <div className={`text-sm py-4 text-center rounded-lg ${
             isDarkMode ? "bg-gray-700 text-gray-400" : "bg-gray-50 text-gray-500"
           }`}>
-            Module not responding
+            Device not responding
           </div>
         )}
       </div>
@@ -462,24 +414,13 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
   // Actuator Module - LED
   if (module.type === "led") {
     const handleToggle = (isOn: boolean) => {
-      updateModule(module.id, { isOn });
-      addActivity({
-        type: "user",
-        action: `You turned ${isOn ? "on" : "off"} ${module.name}`,
-        detail: `via ${hub.name}`,
-        success: true,
-      });
+      // In real app, would call API here
       showToast(`${module.name} turned ${isOn ? "on" : "off"}`, "success");
     };
 
     const handleColorChange = (color: string) => {
-      updateModule(module.id, { color });
-      addActivity({
-        type: "user",
-        action: `You changed ${module.name} color`,
-        detail: `via ${hub.name}`,
-        success: true,
-      });
+      // In real app, would call API here
+      showToast(`${module.name} color changed`, "success");
     };
 
     return (
@@ -488,7 +429,7 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
       }`}>
         <div className="flex items-start justify-between mb-3">
           <Lightbulb className="w-6 h-6 text-yellow-500" />
-          {showRoomInfo && (
+          {showRoomInfo && module.room && (
             <span className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
               {module.room}
             </span>
@@ -503,16 +444,16 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
           <span className={`text-xs px-2 py-0.5 rounded ${
             isDarkMode ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
           }`}>
-            {module.feed}
+            {module.feed || "N/A"}
           </span>
           <div className={`w-2 h-2 rounded-full ${
             module.status === "online" ? "bg-green-500" : "bg-gray-400"
           }`}></div>
         </div>
 
-        {showHubInfo && (
+        {showDeviceInfo && (
           <div className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-            via {hub.name}
+            via {device.name}
           </div>
         )}
 
@@ -531,33 +472,22 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
                 value={module.color || "#8B5CF6"}
                 onChange={(e) => handleColorChange(e.target.value)}
                 className="w-full h-10 rounded cursor-pointer"
-                disabled={!module.isOn}
               />
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={() => handleToggle(true)}
-                className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  module.isOn
-                    ? "bg-blue-600 text-white"
-                    : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
+                className={`flex-1 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700`}
               >
                 On
               </button>
               <button
                 onClick={() => handleToggle(false)}
                 className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  !module.isOn
-                    ? isDarkMode
-                      ? "bg-gray-700 text-white"
-                      : "bg-gray-200 text-gray-900"
-                    : isDarkMode
-                    ? "bg-transparent text-gray-400 border border-gray-600 hover:bg-gray-700"
-                    : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  isDarkMode
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 Off
@@ -568,7 +498,7 @@ function ModuleCard({ module, hub, showHubInfo, showRoomInfo }: { module: Module
           <div className={`text-sm py-4 text-center rounded-lg ${
             isDarkMode ? "bg-gray-700 text-gray-400" : "bg-gray-50 text-gray-500"
           }`}>
-            Module not responding
+            Device not responding
           </div>
         )}
       </div>

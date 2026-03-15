@@ -8,10 +8,15 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles = ["owner", "family", "guest"] }: ProtectedRouteProps) {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Wait for auth to be initialized
+    if (authLoading) {
+      return;
+    }
+    
     if (!user?.isAuthenticated) {
       navigate("/auth/login");
       return;
@@ -23,7 +28,19 @@ export function ProtectedRoute({ children, allowedRoles = ["owner", "family", "g
     else if (!allowedRoles.includes(user.role)) {
       navigate("/");
     }
-  }, [user, allowedRoles, navigate]);
+  }, [user, authLoading, allowedRoles, navigate]);
+
+  // Show loading while auth is being initialized
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user?.isAuthenticated || !allowedRoles.includes(user.role)) {
     return null;

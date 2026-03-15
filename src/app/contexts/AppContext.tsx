@@ -7,6 +7,7 @@ import {
   memberService,
   authService 
 } from "../api";
+import type { UserProfile } from "../types/api";
 
 export type ModuleType = "temperature" | "humidity" | "light-sensor" | "fan" | "led" | "pir-motion" | "lcd-display";
 export type ModuleStatus = "online" | "offline";
@@ -129,16 +130,6 @@ export interface TemperatureSimulation {
   value: number;
 }
 
-export interface UserProfile {
-  fullName: string;
-  email: string;
-  phone: string;
-  role: UserRole;
-  timeZone: string;
-  language: string;
-  avatar: string; // URL or initials
-}
-
 interface AppContextType {
   // Homes
   homes: Home[];
@@ -227,6 +218,7 @@ interface AppContextType {
   // User Profile
   userProfile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfileAsync: (updates: Partial<UserProfile>) => Promise<any>;
   userProfileLoading: boolean;
   
   // Toast notifications
@@ -414,7 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [devicesError, setDevicesError] = useState<Error | null>(null);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState<Error | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true); // Track when auth state is initialized
   const [authError, setAuthError] = useState<Error | null>(null);
   const [userProfileLoading, setUserProfileLoading] = useState(false);
   
@@ -446,16 +438,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   // User Profile
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    fullName: "",
+    id: "",
+    name: "",
     email: "",
-    phone: "",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    avatar: "",
     role: "family",
-    timeZone: "UTC",
-    language: "en",
-    avatar: ""
   });
 
   const isDarkMode = theme === "dark";
+  
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log('[AppContext] user state changed:', user);
+    // Mark auth initialization as complete
+    setAuthLoading(false);
+  }, []);
   
   // Fetch homes on mount
   useEffect(() => {
@@ -467,19 +467,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       try {
         setHomesLoading(true);
+        console.log('[AppContext] Fetching homes...');
         const homesData = await homeService.getHomes();
+        console.log('[AppContext] Homes fetched:', homesData);
         setHomes(homesData || []);
         setHomesError(null);
         
         // Set first home as selected if available
         if (homesData && homesData.length > 0 && !selectedHomeId) {
           const defaultHome = homesData.find(h => h.isDefault) || homesData[0];
+          console.log('[AppContext] Setting default home:', defaultHome.id);
           setSelectedHomeId(defaultHome.id);
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         setHomesError(err);
-        console.error("Failed to fetch homes:", err);
+        console.error("[AppContext] Failed to fetch homes:", err);
       } finally {
         setHomesLoading(false);
       }
@@ -498,13 +501,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       try {
         setRoomsLoading(true);
+        console.log('[AppContext] Fetching rooms for home:', selectedHomeId);
         const roomsData = await roomService.getRoomsByHome(selectedHomeId);
+        console.log('[AppContext] Rooms fetched:', roomsData);
         setRooms(roomsData || []);
         setRoomsError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         setRoomsError(err);
-        console.error("Failed to fetch rooms:", err);
+        console.error("[AppContext] Failed to fetch rooms:", err);
       } finally {
         setRoomsLoading(false);
       }
@@ -523,13 +528,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       try {
         setDevicesLoading(true);
+        console.log('[AppContext] Fetching devices for home:', selectedHomeId);
         const devicesData = await deviceService.getDevicesByHome(selectedHomeId);
+        console.log('[AppContext] Devices fetched:', devicesData);
         setDevices(devicesData || []);
         setDevicesError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         setDevicesError(err);
-        console.error("Failed to fetch devices:", err);
+        console.error("[AppContext] Failed to fetch devices:", err);
       } finally {
         setDevicesLoading(false);
       }
@@ -550,13 +557,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const userData = await userService.getCurrentUser();
         if (userData) {
           setUserProfile({
-            fullName: userData.fullName || userData.email.split('@')[0],
+            id: userData.id,
+            name: userData.name,
             email: userData.email,
-            phone: userData.phone || "",
-            role: userData.role || "family",
-            timeZone: "UTC",
-            language: "en",
-            avatar: userData.fullName?.substring(0, 2).toUpperCase() || "U"
+            isActive: userData.isActive,
+            createdAt: new Date(userData.createdAt),
+            updatedAt: new Date(userData.updatedAt),
+            role: user?.role || "family",
+            avatar: userData.name?.substring(0, 2).toUpperCase() || "U"
           });
         }
       } catch (error) {
@@ -575,14 +583,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuthLoading(true);
       setAuthError(null);
       
+      console.log('[AppContext] Logging in with:', email);
       const result = await authService.login(email, password);
+      console.log('[AppContext] Login result:', result);
+      
       const userData = {
         isAuthenticated: true,
         role: result.user.role as UserRole || 'family' as UserRole,
         email: result.user.email,
-        name: result.user.fullName || email.split('@')[0],
+        name: result.user.name || email.split('@')[0],
       };
       
+      console.log('[AppContext] Setting user:', userData);
       setUser(userData);
       
       const storage = rememberMe ? localStorage : sessionStorage;
@@ -743,6 +755,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserProfile(prev => ({ ...prev, ...updates }));
   };
 
+  // Update user profile via API
+  const updateUserProfileAsync = async (updates: Partial<UserProfile>) => {
+    try {
+      console.log('[AppContext] Updating user profile via API:', updates);
+      
+      // Map frontend UserProfile to API UpdateUserRequest
+      const apiRequest = {
+        name: updates.name,
+        avatar: updates.avatar,
+      };
+      
+      const result = await userService.updateProfile(apiRequest);
+      console.log('[AppContext] User profile updated:', result);
+      
+      // Update local state with result
+      setUserProfile(prev => ({
+        ...prev,
+        email: result.email,
+        name: result.name,
+        isActive: result.isActive,
+        updatedAt: new Date(result.updatedAt),
+      }));
+      
+      return result;
+    } catch (error) {
+      console.error('[AppContext] Failed to update user profile:', error);
+      throw error;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -839,6 +881,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // User Profile
         userProfile,
         updateUserProfile,
+        updateUserProfileAsync,
         userProfileLoading,
         
         // Toast

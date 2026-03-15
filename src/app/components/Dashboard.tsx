@@ -5,13 +5,13 @@ import { TimeDisplay } from "./TimeDisplay";
 import { EnvironmentStats } from "./ui/EnvironmentStats";
 
 export function Dashboard() {
-  const { devices, activities, rooms, isDarkMode } = useApp();
+  const { devices, activities, rooms, isDarkMode, userProfile } = useApp();
   const navigate = useNavigate();
   
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
-  const userName = "John";
+  const userName = userProfile.name || "User";
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -95,6 +95,28 @@ export function Dashboard() {
         />
       </div>
 
+      {/* Homes Quick Link */}
+      <div className={`rounded-xl shadow-sm border p-6 ${
+        isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+      }`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Manage Homes
+            </h2>
+            <p className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              View and manage all your smart homes
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/homes")}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Go to Homes
+          </button>
+        </div>
+      </div>
+
       {/* Main Content - Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Active Rooms with Devices */}
@@ -119,7 +141,7 @@ export function Dashboard() {
                   modules={roomModules}
                   getModuleIcon={getModuleIcon}
                   offlineModulesCount={offlineModulesCount}
-                  onClick={() => navigate("/rooms")}
+                  onClick={() => navigate(`/rooms/${room.id}`, { state: { room } })}
                 />
               );
             })}

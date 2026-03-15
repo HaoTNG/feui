@@ -13,22 +13,26 @@ class AuthService {
    */
   async login(email: string, password: string): Promise<{ accessToken: string; user: UserInfo }> {
     try {
+      console.log('[AuthService] Attempting login for:', email);
       const response = await apiRequest<{
         accessToken: string;
         user: UserInfo;
       }>('post', API_ENDPOINTS.AUTH.LOGIN, { email, password });
 
+      console.log('[AuthService] Login response:', response);
+
       if (!response.data) {
         throw new Error('Invalid response from login endpoint');
       }
 
+      console.log('[AuthService] Login successful, storing token and user data');
       // Store token
       localStorage.setItem('authToken', response.data.accessToken);
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
       return response.data;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('[AuthService] Login failed:', error);
       throw error;
     }
   }

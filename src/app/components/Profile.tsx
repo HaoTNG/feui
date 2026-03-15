@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, Lock, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../contexts/AppContext";
+import { userService } from "../api/services/userService";
 
 // Sample profile avatars for demo
 const SAMPLE_AVATARS = [
@@ -12,13 +13,11 @@ const SAMPLE_AVATARS = [
 ];
 
 export function Profile() {
-  const { userProfile, updateUserProfile, isDarkMode, userRole } = useApp();
+  const { userProfile, updateUserProfileAsync, isDarkMode, userRole } = useApp();
   
   const [formData, setFormData] = useState({
-    fullName: userProfile.fullName,
-    phone: userProfile.phone,
-    timeZone: userProfile.timeZone,
-    language: userProfile.language,
+    name: userProfile.name,
+    avatar: userProfile.avatar || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -28,6 +27,16 @@ export function Profile() {
   const [saving, setSaving] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync form data when userProfile loads from API
+  useEffect(() => {
+    setFormData({
+      name: userProfile.name || "",
+      avatar: userProfile.avatar || "",
+    });
+    setHasChanges(false);
+    setErrors({});
+  }, [userProfile.id]); // Only sync when userProfile.id changes (after login/fetch)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -45,7 +54,7 @@ export function Profile() {
   const validateField = (field: string, value: string) => {
     let error = "";
     
-    if (field === "fullName") {
+    if (field === "name") {
       if (!value.trim()) {
         error = "Name is required";
       } else if (value.trim().length < 2) {
@@ -53,12 +62,6 @@ export function Profile() {
       }
     }
     
-    if (field === "phone") {
-      const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-      if (value && !phoneRegex.test(value.replace(/\s/g, ""))) {
-        error = "Please enter a valid phone number";
-      }
-    }
     
     setErrors(prev => ({ ...prev, [field]: error }));
     return !error;
@@ -67,13 +70,8 @@ export function Profile() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Name is required";
-    }
-    
-    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-    if (formData.phone && !phoneRegex.test(formData.phone.replace(/\s/g, ""))) {
-      newErrors.phone = "Please enter a valid phone number";
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required";
     }
     
     setErrors(newErrors);
@@ -87,27 +85,33 @@ export function Profile() {
 
     setSaving(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    updateUserProfile(formData);
-    setHasChanges(false);
-    setSaving(false);
-    toast.success("Profile updated successfully");
+    try {
+      // Call API to update profile
+      await updateUserProfileAsync({
+        name: formData.name,
+        avatar: formData.avatar,
+      });
+      
+      setHasChanges(false);
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error("Failed to update profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
-    if (hasChanges) {
+    if (isFormValid) {
       setShowDiscardDialog(true);
     }
   };
 
   const handleDiscard = () => {
     setFormData({
-      fullName: userProfile.fullName,
-      phone: userProfile.phone,
-      timeZone: userProfile.timeZone,
-      language: userProfile.language,
+      name: userProfile.name,
+      avatar: userProfile.avatar || "",
     });
     setErrors({});
     setHasChanges(false);
@@ -117,14 +121,15 @@ export function Profile() {
 
   const handlePhotoUpload = () => {
     if (selectedAvatar) {
-      updateUserProfile({ avatar: selectedAvatar });
+      updateUserProfileAsync({ avatar: selectedAvatar });
       setShowPhotoModal(false);
       setSelectedAvatar(null);
       toast.success("Profile photo updated successfully");
     }
   };
 
-  const isFormValid = Object.keys(errors).length === 0 && formData.fullName.trim();
+  // Form is valid if no errors exist and name is not empty
+  const isFormValid = Object.keys(errors).length === 0 && formData.name && formData.name.trim().length > 0;
 
   // Role badge config
   const getRoleBadge = () => {
@@ -166,7 +171,7 @@ export function Profile() {
           
           <div className="flex flex-col items-center">
             {/* Profile Picture */}
-            {userProfile.avatar.startsWith("http") ? (
+            {userProfile.avatar?.startsWith("http") ? (
               <img 
                 src={userProfile.avatar} 
                 alt="Profile" 
@@ -215,19 +220,19 @@ export function Profile() {
               </label>
               <input
                 type="text"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange("fullName", e.target.value)}
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
                 placeholder="Enter your full name"
                 className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  errors.fullName
+                  errors.name
                     ? "border-red-500 focus:ring-red-500"
                     : isDarkMode
                     ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-500"
                     : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
                 } focus:outline-none focus:ring-2`}
               />
-              {errors.fullName && (
-                <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-500">{errors.name}</p>
               )}
             </div>
 
@@ -258,31 +263,6 @@ export function Profile() {
               </p>
             </div>
 
-            {/* Phone Number */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                isDarkMode ? "text-gray-300" : "text-gray-700"
-              }`}>
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange("phone", e.target.value)}
-                placeholder="Enter your phone number"
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  errors.phone
-                    ? "border-red-500 focus:ring-red-500"
-                    : isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-500"
-                    : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                } focus:outline-none focus:ring-2`}
-              />
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-              )}
-            </div>
-
             {/* Your Role */}
             <div>
               <label className={`block text-sm font-medium mb-2 ${
@@ -304,66 +284,13 @@ export function Profile() {
               </div>
             </div>
 
-            {/* Time Zone */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                isDarkMode ? "text-gray-300" : "text-gray-700"
-              }`}>
-                Time Zone
-              </label>
-              <select
-                value={formData.timeZone}
-                onChange={(e) => handleInputChange("timeZone", e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-500"
-                    : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                } focus:outline-none focus:ring-2`}
-              >
-                <option value="UTC">(GMT+00:00) UTC</option>
-                <option value="America/Los_Angeles">(GMT-08:00) Pacific Time</option>
-                <option value="America/New_York">(GMT-05:00) Eastern Time</option>
-                <option value="Europe/London">(GMT+00:00) London</option>
-                <option value="Europe/Paris">(GMT+01:00) Paris</option>
-                <option value="Asia/Tokyo">(GMT+09:00) Tokyo</option>
-                <option value="Asia/Ho_Chi_Minh">(GMT+07:00) Ho Chi Minh</option>
-              </select>
-            </div>
-
-            {/* Language */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                isDarkMode ? "text-gray-300" : "text-gray-700"
-              }`}>
-                Language
-              </label>
-              <select
-                value={formData.language}
-                onChange={(e) => handleInputChange("language", e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-500"
-                    : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
-                } focus:outline-none focus:ring-2`}
-              >
-                <option value="en">English (US)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="es">Español</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="vi">Tiếng Việt</option>
-                <option value="zh">中文</option>
-                <option value="ja">日本語</option>
-              </select>
-            </div>
-
             {/* Action Buttons */}
             <div className="flex items-center gap-3 pt-4">
               <button
                 onClick={handleSave}
-                disabled={!hasChanges || !isFormValid || saving}
+                disabled={saving}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-                  hasChanges && isFormValid && !saving
+                  !saving
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
@@ -374,9 +301,9 @@ export function Profile() {
               
               <button
                 onClick={handleCancel}
-                disabled={!hasChanges}
+                disabled={!isFormValid}
                 className={`px-6 py-3 rounded-lg font-medium border-2 transition-colors ${
-                  hasChanges
+                  isFormValid
                     ? isDarkMode
                       ? "border-gray-600 text-gray-300 hover:bg-gray-700"
                       : "border-gray-300 text-gray-700 hover:bg-gray-50"

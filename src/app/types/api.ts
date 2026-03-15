@@ -24,7 +24,7 @@ export interface ApiErrorResponse {
 // ============================================================
 // 1. AUTHENTICATION
 // ============================================================
-
+ 
 export interface LoginRequest {
   email: string;
   password: string;
@@ -57,6 +57,7 @@ export interface User {
 
 export interface UpdateUserRequest {
   name?: string;
+  phone?: string;
   avatar?: string;
 }
 

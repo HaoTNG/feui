@@ -17,6 +17,7 @@ import { RoomDetail } from "./components/RoomDetail";
 import { UserManagement } from "./components/UserManagement";
 import { Profile } from "./components/Profile";
 import { Homes } from "./components/Homes";
+import { HomeDetail } from "./components/HomeDetail";
 import { Settings } from "./components/Settings";
 import { Automation } from "./components/Automation";
 import { GuestDashboard } from "./components/GuestDashboard";
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "hub-management/:hubId", Component: HubDetail },
       { path: "modules", Component: ModulesManagement },
       { path: "homes", Component: Homes },
+      { path: "homes/:homeId", Component: HomeDetail },
       { path: "rooms", element: <Navigate to="/room-management" replace /> },
       { path: "room-management", Component: RoomManagement },
       { path: "room-management/:roomId", Component: RoomDetail },

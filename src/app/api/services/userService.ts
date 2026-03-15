@@ -29,10 +29,13 @@ class UserService {
    */
   async updateProfile(updates: UpdateUserRequest): Promise<User> {
     try {
+      console.log('[UserService] Updating profile with:', updates);
+      // Backend expects PATCH /users/me for partial updates
       const response = await apiRequest<User>('patch', API_ENDPOINTS.USERS.UPDATE_PROFILE, updates);
       if (!response.data) {
         throw new Error('Failed to update user profile');
       }
+      console.log('[UserService] Profile updated:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to update user profile:', error);
