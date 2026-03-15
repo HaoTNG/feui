@@ -5,7 +5,7 @@ import { TimeDisplay } from "./TimeDisplay";
 import { EnvironmentStats } from "./ui/EnvironmentStats";
 
 export function Dashboard() {
-  const { devices, activities, rooms, isDarkMode, selectedHomeId, hubs, modules, getModulesByRoom, getModulesByHub } = useApp();
+  const { devices, activities, rooms, isDarkMode } = useApp();
   const navigate = useNavigate();
   
   const currentHour = new Date().getHours();
@@ -19,18 +19,17 @@ export function Dashboard() {
     day: "numeric",
   });
 
-  // Filter data by selected home
-  const currentHomeRooms = rooms.filter(r => r.homeId === selectedHomeId);
-  const currentHomeDevices = devices.filter(d => d.homeId === selectedHomeId);
-  const currentHomeActivities = activities.filter(a => !a.homeId || a.homeId === selectedHomeId);
-  const currentHomeHubs = hubs.filter(h => h.homeId === selectedHomeId);
-  const currentHomeModules = modules.filter(m => m.homeId === selectedHomeId);
-
-  // Calculate stats
-  const totalHubs = currentHomeHubs.length;
-  const totalModules = currentHomeModules.length;
-  const onlineHubs = currentHomeHubs.filter(h => h.status === "online").length;
-  const onlineModules = currentHomeModules.filter(m => m.status === "online").length;
+  // Filter data for current home (devices and modules are already filtered by AppContext based on selectedHomeId)
+  const currentHomeRooms = rooms || [];
+  const currentHomeDevices = devices || [];
+  const currentHomeActivities = (activities || []).filter(a => !a.homeId); // Activities are global now
+  
+  // Calculate stats from devices with nested modules
+  const totalDevices = currentHomeDevices.length;
+  const totalModules = currentHomeDevices.reduce((sum, device) => sum + (device.modules?.length || 0), 0);
+  const onlineDevices = currentHomeDevices.filter(d => d.status === "online").length;
+  const onlineModules = currentHomeDevices.reduce((sum, device) => 
+    sum + (device.modules?.filter(m => m.status === "online").length || 0), 0);
   const offlineModules = totalModules - onlineModules;
 
   // Get recent activities (last 5)
@@ -75,8 +74,8 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           icon={HardDrive}
-          label="Total Hubs"
-          value={`${totalHubs} Hubs`}
+          label="Total Devices"
+          value={`${totalDevices} Devices`}
           iconColor="text-blue-600"
           bgColor={isDarkMode ? "bg-blue-900/30" : "bg-blue-50"}
         />
@@ -98,7 +97,7 @@ export function Dashboard() {
 
       {/* Main Content - Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Active Rooms with Hub Integration */}
+        {/* Left Column: Active Rooms with Devices */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center gap-2">
             <Home className={`w-6 h-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
@@ -108,17 +107,16 @@ export function Dashboard() {
           </div>
           <div className="space-y-4">
             {currentHomeRooms.map((room) => {
-              const roomHubs = currentHomeHubs.filter((h) => h.room === room.name);
-              const roomModules = currentHomeModules.filter((m) => m.room === room.name);
+              const roomDevices = currentHomeDevices.filter((d) => d.roomId === room.id);
+              const roomModules = roomDevices.flatMap(d => d.modules || []);
               const offlineModulesCount = roomModules.filter(m => m.status === "offline").length;
               
               return (
-                <RoomCardWithHubs
+                <RoomCardWithDevices
                   key={room.id}
                   name={room.name}
-                  hubs={roomHubs}
+                  devices={roomDevices}
                   modules={roomModules}
-                  getModulesByHub={getModulesByHub}
                   getModuleIcon={getModuleIcon}
                   offlineModulesCount={offlineModulesCount}
                   onClick={() => navigate("/rooms")}
@@ -251,24 +249,27 @@ function FilterChip({ label, active }: { label: string; active: boolean }) {
   );
 }
 
-function RoomCardWithHubs({
+function RoomCardWithDevices({
   name,
-  hubs,
+  devices,
   modules,
-  getModulesByHub,
   getModuleIcon,
   offlineModulesCount,
   onClick,
 }: {
   name: string;
-  hubs: any[];
+  devices: any[];
   modules: any[];
-  getModulesByHub: (hubId: string) => any[];
   getModuleIcon: (type: string) => any;
   offlineModulesCount: number;
   onClick: () => void;
 }) {
   const { isDarkMode } = useApp();
+  
+  // Get environment data from modules
+  const tempModule = modules.find(m => m.type === "temperature");
+  const humidityModule = modules.find(m => m.type === "humidity");
+  const luxModule = modules.find(m => m.type === "light-sensor");
   
   return (
     <button
@@ -291,108 +292,75 @@ function RoomCardWithHubs({
               {name}
             </h3>
             <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-              {hubs.length} hubs • {modules.length} modules
+              {devices.length} devices • {modules.length} modules
             </p>
           </div>
         </div>
       </div>
 
-      {/* Hubs in this room */}
-      <div className="space-y-3">
-        {hubs.map((hub) => {
-          const hubModules = getModulesByHub(hub.id);
-          const tempModule = hubModules.find(m => m.type === "temperature");
-          const humidityModule = hubModules.find(m => m.type === "humidity");
-          const luxModule = hubModules.find(m => m.type === "light-sensor");
-          const fanModule = hubModules.find(m => m.type === "fan");
-          const ledModule = hubModules.find(m => m.type === "led");
-          
-          return (
-            <div
-              key={hub.id}
-              className={`rounded-lg border p-3 ${
-                isDarkMode ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <HardDrive className="w-4 h-4 text-blue-500" />
-                <span className={`text-sm font-medium ${isDarkMode ? "text-gray-200" : "text-gray-900"}`}>
-                  {hub.name}
-                </span>
-              </div>
-              
-              {/* Environmental stats */}
-              <div className="flex items-center gap-4 text-xs mb-2">
-                {tempModule && (
-                  <div className="flex items-center gap-1">
-                    <Thermometer className="w-3 h-3 text-orange-500" />
-                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                      {tempModule.temperature}°C
-                    </span>
-                  </div>
-                )}
-                {humidityModule && (
-                  <div className="flex items-center gap-1">
-                    <Droplets className="w-3 h-3 text-blue-500" />
-                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                      {humidityModule.humidity}%
-                    </span>
-                  </div>
-                )}
-                {luxModule && (
-                  <div className="flex items-center gap-1">
-                    <Sun className="w-3 h-3 text-yellow-500" />
-                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-                      {luxModule.lux} lux
-                    </span>
-                  </div>
-                )}
-              </div>
+      {/* Environmental stats */}
+      <div className="flex items-center gap-4 text-xs mb-3 pb-3 border-b" style={{borderColor: isDarkMode ? "#374151" : "#e5e7eb"}}>
+        {tempModule && (
+          <div className="flex items-center gap-1">
+            <Thermometer className="w-3 h-3 text-orange-500" />
+            <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+              {tempModule.temperature}°C
+            </span>
+          </div>
+        )}
+        {humidityModule && (
+          <div className="flex items-center gap-1">
+            <Droplets className="w-3 h-3 text-blue-500" />
+            <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+              {humidityModule.humidity}%
+            </span>
+          </div>
+        )}
+        {luxModule && (
+          <div className="flex items-center gap-1">
+            <Sun className="w-3 h-3 text-yellow-500" />
+            <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+              {luxModule.lux} lux
+            </span>
+          </div>
+        )}
+      </div>
 
-              {/* Module status */}
-              <div className="flex items-center gap-4 text-xs mb-2">
-                {fanModule && (
-                  <div className="flex items-center gap-1">
-                    <Fan className="w-3 h-3 text-gray-500" />
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                      Fan: {fanModule.isOn ? "ON" : "OFF"}
-                    </span>
-                  </div>
-                )}
-                {ledModule && (
-                  <div className="flex items-center gap-1">
-                    <Lightbulb className="w-3 h-3 text-gray-500" />
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-                      LED: {ledModule.isOn ? "ON" : "OFF"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Hub status */}
-              <div className="flex items-center gap-2 text-xs">
-                {hub.status === "online" ? (
-                  <>
-                    <Wifi className="w-3 h-3 text-green-500" />
-                    <span className="text-green-600">
-                      {hub.wifiSignal && hub.wifiSignal > 70 ? "Strong" : hub.wifiSignal && hub.wifiSignal > 40 ? "Medium" : "Weak"} • Online
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3 h-3 text-gray-500" />
-                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Offline</span>
-                  </>
-                )}
-              </div>
+      {/* Devices in this room */}
+      <div className="space-y-2 mb-3">
+        {devices.map((device) => (
+          <div
+            key={device.id}
+            className={`flex items-center justify-between rounded-lg p-2 text-xs ${
+              isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <HardDrive className="w-3 h-3 text-blue-500" />
+              <span className={isDarkMode ? "text-gray-200" : "text-gray-900"}>
+                {device.name}
+              </span>
             </div>
-          );
-        })}
+            <div className="flex items-center gap-2">
+              {device.status === "online" ? (
+                <>
+                  <Wifi className="w-3 h-3 text-green-500" />
+                  <span className="text-green-600">Online</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 text-gray-500" />
+                  <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Offline</span>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Warning for offline modules */}
       {offlineModulesCount > 0 && (
-        <div className={`mt-3 pt-3 border-t flex items-center gap-2 text-xs ${
+        <div className={`pt-2 border-t flex items-center gap-2 text-xs ${
           isDarkMode ? "border-gray-700 text-yellow-400" : "border-gray-200 text-yellow-600"
         }`}>
           <AlertTriangle className="w-4 h-4" />
@@ -413,20 +381,20 @@ function ActivityItem({
   icon: any;
   action: string;
   time: string;
-  type: "hub" | "module" | "automation" | "user";
+  type: "device" | "module" | "automation" | "user";
   success: boolean;
 }) {
   const { isDarkMode } = useApp();
   
   const iconColors = {
-    hub: isDarkMode ? "bg-blue-900/30 text-blue-400" : "bg-blue-50 text-blue-600",
+    device: isDarkMode ? "bg-blue-900/30 text-blue-400" : "bg-blue-50 text-blue-600",
     module: isDarkMode ? "bg-purple-900/30 text-purple-400" : "bg-purple-50 text-purple-600",
     automation: isDarkMode ? "bg-green-900/30 text-green-400" : "bg-green-50 text-green-600",
     user: isDarkMode ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600",
   };
 
   const typeLabels = {
-    hub: "Hub",
+    device: "Device",
     module: "Module",
     automation: "Automation",
     user: "User",

@@ -1,12 +1,18 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { initialHubs, initialModules } from "./hubsAndModulesData";
+import { 
+  homeService, 
+  roomService, 
+  deviceService, 
+  userService,
+  memberService,
+  authService 
+} from "../api";
 
-// Types
 export type ModuleType = "temperature" | "humidity" | "light-sensor" | "fan" | "led" | "pir-motion" | "lcd-display";
 export type ModuleStatus = "online" | "offline";
 export type UserRole = "owner" | "family" | "guest";
 export type HomeType = "apartment" | "house" | "condo" | "townhouse" | "other";
-export type HubStatus = "online" | "offline";
+export type DeviceStatus = "online" | "offline";
 
 export interface Home {
   id: string;
@@ -20,70 +26,36 @@ export interface Home {
   createdAt: Date;
 }
 
-// YoloBit Hub - The actual device that connects to WiFi
-export interface Hub {
-  id: string; // User-friendly ID (e.g., "YB-2415A7")
-  name: string; // User-given name (e.g., "Living Room Hub")
-  homeId: string;
-  room: string;
-  status: HubStatus;
-  icon: string;
-  firmwareVersion: string;
-  ipAddress?: string;
-  macAddress?: string;
-  wifiSignal?: number; // 0-100
-  connectedSince?: Date;
-  lastSeen: Date;
-  moduleCount: number;
-  onlineModuleCount: number;
-  addedDate: Date;
-}
-
-// Module - Sensor or actuator connected to a hub
+// Device - Physical IoT device with nested modules
 export interface Module {
   id: string;
   name: string;
   type: ModuleType;
-  hubId: string; // Parent hub
-  room: string; // Can be different from hub's room
-  homeId: string;
   status: ModuleStatus;
-  feed: string; // Adafruit IO feed name
-  // Sensor values
+  value?: number | boolean | string;
+  displayValue?: string;
+  unit?: string;
   temperature?: number;
   humidity?: number;
   lux?: number;
   motion?: boolean;
-  // Actuator states
   isOn?: boolean;
-  speed?: number; // For fan
-  color?: string; // For RGB LED
+  speed?: number;
+  color?: string;
   brightness?: number;
-  // Calibration
-  calibrationOffset?: number;
-  lastSeen?: Date;
-  allowedForGuests?: boolean;
 }
-
-// Keep old Device type for backward compatibility but mark as deprecated
-export type DeviceType = "light" | "fan" | "rgb-light" | "temperature" | "humidity" | "light-sensor";
-export type DeviceStatus = "online" | "offline";
 
 export interface Device {
   id: string;
   name: string;
-  type: DeviceType;
-  room: string;
+  type: string;
+  room?: string;
+  roomId?: string;
   homeId: string;
   status: DeviceStatus;
-  isOn?: boolean;
-  brightness?: number;
-  color?: string;
-  speed?: number;
-  temperature?: number;
-  humidity?: number;
-  lux?: number;
-  allowedForGuests?: boolean;
+  modules: Module[];
+  firmwareId?: string;
+  state?: Record<string, any>;
   addedDate?: Date;
 }
 
@@ -176,46 +148,36 @@ interface AppContextType {
   updateHome: (id: string, updates: Partial<Home>) => void;
   deleteHome: (id: string) => void;
   getCurrentHome: () => Home | null;
+  homesLoading: boolean;
+  homesError: Error | null;
   
-  // Hubs (YoloBit devices)
-  hubs: Hub[];
-  addHub: (hub: Hub) => void;
-  updateHub: (id: string, updates: Partial<Hub>) => void;
-  deleteHub: (id: string) => void;
-  getHubsByHome: (homeId: string) => Hub[];
-  getHubById: (id: string) => Hub | undefined;
-  
-  // Modules (sensors and actuators)
-  modules: Module[];
-  addModule: (module: Module) => void;
-  updateModule: (id: string, updates: Partial<Module>) => void;
-  deleteModule: (id: string) => void;
-  getModulesByHub: (hubId: string) => Module[];
-  getModulesByRoom: (room: string) => Module[];
-  
-  // Devices (deprecated - keeping for backward compatibility)
+  // Devices (with nested modules)
   devices: Device[];
   updateDevice: (id: string, updates: Partial<Device>) => void;
   addDevice: (device: Device) => void;
   deleteDevice: (id: string) => void;
-  
-  // Activities
-  activities: Activity[];
-  addActivity: (activity: Omit<Activity, "id" | "timestamp" | "date" | "time">) => void;
-  
-  // Notifications
-  notifications: Notification[];
-  markNotificationAsRead: (id: string) => void;
-  markAllNotificationsAsRead: () => void;
-  unreadNotificationCount: number;
+  devicesLoading: boolean;
+  devicesError: Error | null;
   
   // Rooms
   rooms: Room[];
   addRoom: (room: Room) => void;
   deleteRoom: (id: string) => void;
   updateRoom: (id: string, updates: Partial<Room>) => void;
+  roomsLoading: boolean;
+  roomsError: Error | null;
   
-  // Automation
+  // Activities (frontend-only)
+  activities: Activity[];
+  addActivity: (activity: Omit<Activity, "id" | "timestamp" | "date" | "time">) => void;
+  
+  // Notifications (frontend-only)
+  notifications: Notification[];
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  unreadNotificationCount: number;
+  
+  // Automation (frontend-only)
   automationRules: AutomationRule[];
   toggleAutomationRule: (id: string) => void;
   addAutomationRule: (rule: AutomationRule) => void;
@@ -239,10 +201,12 @@ interface AppContextType {
     email: string;
     name: string;
   } | null;
-  login: (email: string, password: string, rememberMe: boolean) => boolean;
-  logout: () => void;
+  login: (email: string, password: string, rememberMe: boolean) => Promise<boolean>;
+  logout: () => Promise<void>;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
+  authLoading: boolean;
+  authError: Error | null;
   
   // Guest access
   guestAccess: GuestAccess;
@@ -258,11 +222,12 @@ interface AppContextType {
   // DEMO-SIMULATION-REMOVE-LATER: Temperature simulation
   temperatureSimulation: TemperatureSimulation;
   setTemperatureSimulation: (simulation: TemperatureSimulation) => void;
-  getCurrentTemperature: () => number; // Returns simulated temp if enabled, otherwise real temp
+  getCurrentTemperature: () => number;
   
   // User Profile
   userProfile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
+  userProfileLoading: boolean;
   
   // Toast notifications
   showToast: (message: string, type: "success" | "error" | "info") => void;
@@ -270,131 +235,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const initialHomes: Home[] = [
-  {
-    id: "home-1",
-    name: "My Apartment",
-    type: "apartment",
-    address: "123 Main St, Apt 4B, New York, NY 10001",
-    icon: "apartment",
-    isDefault: true,
-    roomCount: 4,
-    deviceCount: 9,
-    createdAt: new Date(2024, 0, 15),
-  },
-  {
-    id: "home-2",
-    name: "Beach House",
-    type: "house",
-    address: "456 Ocean Dr, Miami Beach, FL 33139",
-    icon: "beach-house",
-    isDefault: false,
-    roomCount: 3,
-    deviceCount: 5,
-    createdAt: new Date(2025, 5, 20),
-  },
-];
-
-const initialDevices: Device[] = [
-  {
-    id: "living-room-light",
-    name: "Living Room Light",
-    type: "light",
-    room: "Living Room",
-    homeId: "home-1",
-    status: "online",
-    isOn: true,
-    brightness: 80,
-    addedDate: new Date(2024, 1, 10),
-  },
-  {
-    id: "bedroom-fan",
-    name: "Bedroom Fan",
-    type: "fan",
-    room: "Bedroom",
-    homeId: "home-1",
-    status: "online",
-    isOn: true,
-    speed: 2,
-    addedDate: new Date(2024, 1, 12),
-  },
-  {
-    id: "living-room-rgb",
-    name: "Living Room RGB",
-    type: "rgb-light",
-    room: "Living Room",
-    homeId: "home-1",
-    status: "online",
-    isOn: true,
-    color: "#8B5CF6",
-    brightness: 70,
-    addedDate: new Date(2024, 2, 5),
-  },
-  {
-    id: "temperature-sensor",
-    name: "Temperature Sensor",
-    type: "temperature",
-    room: "Living Room",
-    homeId: "home-1",
-    status: "online",
-    temperature: 24.5,
-    addedDate: new Date(2024, 1, 10),
-  },
-  {
-    id: "humidity-sensor",
-    name: "Humidity Sensor",
-    type: "humidity",
-    room: "Bedroom",
-    homeId: "home-1",
-    status: "online",
-    humidity: 65,
-    addedDate: new Date(2024, 1, 10),
-  },
-  {
-    id: "light-sensor",
-    name: "Light Sensor",
-    type: "light-sensor",
-    room: "Kitchen",
-    homeId: "home-1",
-    status: "online",
-    lux: 450,
-    addedDate: new Date(2024, 1, 15),
-  },
-  {
-    id: "kitchen-light",
-    name: "Kitchen Light",
-    type: "light",
-    room: "Kitchen",
-    homeId: "home-1",
-    status: "online",
-    isOn: false,
-    brightness: 0,
-    addedDate: new Date(2024, 1, 20),
-  },
-  {
-    id: "office-fan",
-    name: "Office Fan",
-    type: "fan",
-    room: "Office",
-    homeId: "home-1",
-    status: "offline",
-    isOn: false,
-    speed: 0,
-    addedDate: new Date(2024, 2, 1),
-  },
-  {
-    id: "bedroom-light",
-    name: "Bedroom Light",
-    type: "light",
-    room: "Bedroom",
-    homeId: "home-1",
-    status: "online",
-    isOn: false,
-    brightness: 0,
-    addedDate: new Date(2024, 1, 18),
-  },
-];
-
+// Keep these mock data for frontend-only features
 const initialActivities: Activity[] = [
   {
     id: "1",
@@ -497,57 +338,6 @@ const initialNotifications: Notification[] = [
   },
 ];
 
-const initialRooms: Room[] = [
-  { 
-    id: "living-room", 
-    name: "Living Room", 
-    homeId: "home-1",
-    deviceCount: 3,
-    temperature: 24.5,
-    humidity: 65,
-    lightLevel: 450,
-    temperatureTrend: "stable",
-    humidityStatus: "normal",
-    lightStatus: "normal"
-  },
-  { 
-    id: "bedroom", 
-    name: "Bedroom", 
-    homeId: "home-1",
-    deviceCount: 3,
-    temperature: 22.0,
-    humidity: 55,
-    lightLevel: 120,
-    temperatureTrend: "stable",
-    humidityStatus: "normal",
-    lightStatus: "dim"
-  },
-  { 
-    id: "kitchen", 
-    name: "Kitchen", 
-    homeId: "home-1",
-    deviceCount: 2,
-    temperature: 26.5,
-    humidity: 70,
-    lightLevel: 800,
-    temperatureTrend: "rising",
-    humidityStatus: "high",
-    lightStatus: "bright"
-  },
-  { 
-    id: "office", 
-    name: "Office", 
-    homeId: "home-1",
-    deviceCount: 1,
-    temperature: 23.5,
-    humidity: 50,
-    lightLevel: 350,
-    temperatureTrend: "stable",
-    humidityStatus: "normal",
-    lightStatus: "normal"
-  },
-];
-
 const initialAutomationRules: AutomationRule[] = [
   {
     id: "1",
@@ -559,13 +349,12 @@ const initialAutomationRules: AutomationRule[] = [
     conditionOperator: ">",
     conditionValue: 30,
     actionType: "turn_on",
-    deviceId: "bedroom-fan",
   },
   {
     id: "2",
     name: "Goodnight Mode",
     condition: "IF Time = 10:00 PM",
-    action: "Turn off Living Room Light, Bedroom Light, Kitchen Light",
+    action: "Turn off all lights",
     enabled: true,
     conditionType: "time",
     conditionValue: "22:00",
@@ -577,8 +366,8 @@ const initialAutomationRules: AutomationRule[] = [
   {
     id: "3",
     name: "Motion Security",
-    condition: "IF Motion detected in Living Room AND Time between 11:00 PM and 6:00 AM",
-    action: "Send notification 'Motion detected while away'",
+    condition: "IF Motion detected AND Time between 11:00 PM and 6:00 AM",
+    action: "Send notification",
     enabled: false,
     conditionType: "motion",
     actionType: "notification",
@@ -591,12 +380,11 @@ const initialAutomationRules: AutomationRule[] = [
     id: "4",
     name: "Morning Wake Up",
     condition: "IF Time = 7:00 AM",
-    action: "Turn on Bedroom Light (brightness 50%)",
+    action: "Turn on Bedroom Light",
     enabled: true,
     conditionType: "time",
     conditionValue: "07:00",
     actionType: "turn_on",
-    deviceId: "bedroom-light",
     schedule: {
       days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
     }
@@ -604,16 +392,31 @@ const initialAutomationRules: AutomationRule[] = [
 ];
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [homes, setHomes] = useState<Home[]>(initialHomes);
-  const [selectedHomeId, setSelectedHomeId] = useState<string | null>(initialHomes[0].id);
-  const [hubs, setHubs] = useState<Hub[]>(initialHubs);
-  const [modules, setModules] = useState<Module[]>(initialModules);
-  const [devices, setDevices] = useState<Device[]>(initialDevices);
+  // API-driven state - will be populated from services
+  const [homes, setHomes] = useState<Home[]>([]);
+  const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  
+  // Frontend-only state - mock data
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
-  const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>(initialAutomationRules);
+  
+  // UI state
   const [theme, setThemeState] = useState<"light" | "dark" | "auto">("light");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  
+  // Loading states
+  const [homesLoading, setHomesLoading] = useState(true);
+  const [homesError, setHomesError] = useState<Error | null>(null);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState<Error | null>(null);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsError, setRoomsError] = useState<Error | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<Error | null>(null);
+  const [userProfileLoading, setUserProfileLoading] = useState(false);
   
   // Authentication State - Load from storage on mount
   const [user, setUser] = useState<{
@@ -630,68 +433,194 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (sessionSaved) {
       return JSON.parse(sessionSaved);
     }
-    return {
-      isAuthenticated: true,
-      role: 'owner' as UserRole,
-      email: 'demo@example.com',
-      name: 'Demo User'
-    };
+    return null;
   });
   
   const [guestAccess, setGuestAccess] = useState<GuestAccess>({ 
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-    allowedRooms: ["living-room", "kitchen"] // Guest can access Living Room and Kitchen
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    allowedRooms: ["living-room", "kitchen"]
   });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   // DEMO-SIMULATION-REMOVE-LATER: Temperature simulation
   const [temperatureSimulation, setTemperatureSimulation] = useState<TemperatureSimulation>({ enabled: false, value: 24.5 });
   
   // User Profile
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    fullName: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1234567890",
-    role: "owner",
+    fullName: "",
+    email: "",
+    phone: "",
+    role: "family",
     timeZone: "UTC",
     language: "en",
-    avatar: "JD"
+    avatar: ""
   });
 
   const isDarkMode = theme === "dark";
   
-  // Login function
-  const login = (email: string, password: string, rememberMe: boolean) => {
-    let role: UserRole = 'family';
-    if (email.toLowerCase().includes('owner')) role = 'owner';
-    else if (email.toLowerCase().includes('guest')) role = 'guest';
-    
-    const userData = {
-      isAuthenticated: true,
-      role,
-      email,
-      name: email.split('@')[0],
+  // Fetch homes on mount
+  useEffect(() => {
+    const fetchHomes = async () => {
+      if (!user?.isAuthenticated) {
+        setHomesLoading(false);
+        return;
+      }
+      
+      try {
+        setHomesLoading(true);
+        const homesData = await homeService.getHomes();
+        setHomes(homesData || []);
+        setHomesError(null);
+        
+        // Set first home as selected if available
+        if (homesData && homesData.length > 0 && !selectedHomeId) {
+          const defaultHome = homesData.find(h => h.isDefault) || homesData[0];
+          setSelectedHomeId(defaultHome.id);
+        }
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        setHomesError(err);
+        console.error("Failed to fetch homes:", err);
+      } finally {
+        setHomesLoading(false);
+      }
     };
     
-    setUser(userData);
+    fetchHomes();
+  }, [user?.isAuthenticated]);
+  
+  // Fetch rooms when selected home changes
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (!selectedHomeId) {
+        setRooms([]);
+        return;
+      }
+      
+      try {
+        setRoomsLoading(true);
+        const roomsData = await roomService.getRoomsByHome(selectedHomeId);
+        setRooms(roomsData || []);
+        setRoomsError(null);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        setRoomsError(err);
+        console.error("Failed to fetch rooms:", err);
+      } finally {
+        setRoomsLoading(false);
+      }
+    };
     
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('smartHome_user', JSON.stringify(userData));
+    fetchRooms();
+  }, [selectedHomeId]);
+  
+  // Fetch devices when selected home changes
+  useEffect(() => {
+    const fetchDevices = async () => {
+      if (!selectedHomeId) {
+        setDevices([]);
+        return;
+      }
+      
+      try {
+        setDevicesLoading(true);
+        const devicesData = await deviceService.getDevicesByHome(selectedHomeId);
+        setDevices(devicesData || []);
+        setDevicesError(null);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        setDevicesError(err);
+        console.error("Failed to fetch devices:", err);
+      } finally {
+        setDevicesLoading(false);
+      }
+    };
     
-    if (rememberMe) {
-      sessionStorage.removeItem('smartHome_user');
-    } else {
-      localStorage.removeItem('smartHome_user');
+    fetchDevices();
+  }, [selectedHomeId]);
+  
+  // Fetch user profile when authenticated
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.isAuthenticated) {
+        return;
+      }
+      
+      try {
+        setUserProfileLoading(true);
+        const userData = await userService.getCurrentUser();
+        if (userData) {
+          setUserProfile({
+            fullName: userData.fullName || userData.email.split('@')[0],
+            email: userData.email,
+            phone: userData.phone || "",
+            role: userData.role || "family",
+            timeZone: "UTC",
+            language: "en",
+            avatar: userData.fullName?.substring(0, 2).toUpperCase() || "U"
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+      } finally {
+        setUserProfileLoading(false);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user?.isAuthenticated]);
+  
+  // Login function - now async and uses authService
+  const login = async (email: string, password: string, rememberMe: boolean): Promise<boolean> => {
+    try {
+      setAuthLoading(true);
+      setAuthError(null);
+      
+      const result = await authService.login(email, password);
+      const userData = {
+        isAuthenticated: true,
+        role: result.user.role as UserRole || 'family' as UserRole,
+        email: result.user.email,
+        name: result.user.fullName || email.split('@')[0],
+      };
+      
+      setUser(userData);
+      
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('smartHome_user', JSON.stringify(userData));
+      
+      if (rememberMe) {
+        sessionStorage.removeItem('smartHome_user');
+      } else {
+        localStorage.removeItem('smartHome_user');
+      }
+      
+      setAuthLoading(false);
+      return true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      setAuthError(err);
+      setAuthLoading(false);
+      throw err;
     }
-    
-    return true;
   };
   
-  // Logout function
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('smartHome_user');
-    sessionStorage.removeItem('smartHome_user');
+  // Logout function - now async and uses authService
+  const logout = async (): Promise<void> => {
+    try {
+      setAuthLoading(true);
+      await authService.logout();
+      setUser(null);
+      setHomes([]);
+      setDevices([]);
+      setRooms([]);
+      setSelectedHomeId(null);
+      localStorage.removeItem('smartHome_user');
+      sessionStorage.removeItem('smartHome_user');
+      setAuthLoading(false);
+    } catch (error) {
+      console.error("Logout error:", error);
+      setAuthLoading(false);
+    }
   };
   
   // Session timeout warning (24 hours)
@@ -720,50 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [isDarkMode]);
 
-  // Hub functions
-  const addHub = (hub: Hub) => {
-    setHubs((prev) => [...prev, hub]);
-  };
-
-  const updateHub = (id: string, updates: Partial<Hub>) => {
-    setHubs((prev) => prev.map((hub) => (hub.id === id ? { ...hub, ...updates } : hub)));
-  };
-
-  const deleteHub = (id: string) => {
-    setHubs((prev) => prev.filter((hub) => hub.id !== id));
-    // Also delete all modules belonging to this hub
-    setModules((prev) => prev.filter((module) => module.hubId !== id));
-  };
-
-  const getHubsByHome = (homeId: string) => {
-    return hubs.filter((hub) => hub.homeId === homeId);
-  };
-
-  const getHubById = (id: string) => {
-    return hubs.find((hub) => hub.id === id);
-  };
-
-  // Module functions
-  const addModule = (module: Module) => {
-    setModules((prev) => [...prev, module]);
-  };
-
-  const updateModule = (id: string, updates: Partial<Module>) => {
-    setModules((prev) => prev.map((module) => (module.id === id ? { ...module, ...updates } : module)));
-  };
-
-  const deleteModule = (id: string) => {
-    setModules((prev) => prev.filter((module) => module.id !== id));
-  };
-
-  const getModulesByHub = (hubId: string) => {
-    return modules.filter((module) => module.hubId === hubId);
-  };
-
-  const getModulesByRoom = (room: string) => {
-    return modules.filter((module) => module.room === room);
-  };
-
+  // Device functions
   const updateDevice = (id: string, updates: Partial<Device>) => {
     setDevices((prev) =>
       prev.map((device) => (device.id === id ? { ...device, ...updates } : device))
@@ -850,7 +736,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasFullAccess = user?.role === "owner";
 
   const getCurrentTemperature = () => {
-    return temperatureSimulation.enabled ? temperatureSimulation.value : devices.find(d => d.type === "temperature")?.temperature || 24.5;
+    return temperatureSimulation.enabled ? temperatureSimulation.value : devices.find(d => d.modules?.some(m => m.type === "temperature"))?.modules?.find(m => m.type === "temperature")?.temperature || 24.5;
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
@@ -860,52 +746,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        // Homes
         homes,
-        selectedHomeId,
+        selectedHomeId: selectedHomeId || null,
         setSelectedHomeId,
         addHome: (home) => setHomes(prev => [...prev, home]),
         updateHome: (id, updates) => setHomes(prev => prev.map(h => h.id === id ? { ...h, ...updates } : h)),
         deleteHome: (id) => setHomes(prev => prev.filter(h => h.id !== id)),
         getCurrentHome: () => homes.find(h => h.id === selectedHomeId) || null,
-        hubs,
-        addHub,
-        updateHub,
-        deleteHub,
-        getHubsByHome,
-        getHubById,
-        modules,
-        addModule,
-        updateModule,
-        deleteModule,
-        getModulesByHub,
-        getModulesByRoom,
+        homesLoading,
+        homesError,
+        
+        // Devices (with nested modules)
         devices,
         updateDevice,
         addDevice,
         deleteDevice,
-        activities,
-        addActivity,
-        notifications,
-        markNotificationAsRead,
-        markAllNotificationsAsRead,
-        unreadNotificationCount,
+        devicesLoading,
+        devicesError,
+        
+        // Rooms
         rooms,
         addRoom,
         deleteRoom,
         updateRoom,
+        roomsLoading,
+        roomsError,
+        
+        // Activities (frontend-only)
+        activities,
+        addActivity,
+        
+        // Notifications (frontend-only)
+        notifications,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        unreadNotificationCount,
+        
+        // Automation (frontend-only)
         automationRules,
         toggleAutomationRule,
         addAutomationRule,
         updateAutomationRule,
         deleteAutomationRule,
+        
+        // Theme
         theme,
         setTheme,
         isDarkMode,
+        
+        // Sidebar
+        sidebarCollapsed,
+        setSidebarCollapsed,
+        toggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
+        
         // Authentication
         user: user,
         login: login,
         logout: logout,
-        userRole: user?.role || 'owner',
+        userRole: user?.role || 'family',
         setUserRole: (role: UserRole) => {
           if (user) {
             const updatedUser = { ...user, role };
@@ -918,19 +817,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
         },
+        authLoading,
+        authError,
+        
+        // Guest access
         guestAccess,
         setGuestAccess,
+        
+        // Permissions
         canAddDevices,
         canManageMembers,
         canCreateAutomation,
         canViewCameras,
         hasFullAccess,
-        showToast,
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        toggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
         
-        // DEMO-SIMULATION-REMOVE-LATER: Temperature simulation
+        // Temperature simulation
         temperatureSimulation,
         setTemperatureSimulation,
         getCurrentTemperature,
@@ -938,6 +839,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // User Profile
         userProfile,
         updateUserProfile,
+        userProfileLoading,
+        
+        // Toast
+        showToast,
       }}
     >
       {children}

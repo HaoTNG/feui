@@ -4,27 +4,29 @@ import { useToast } from "../contexts/ToastContext";
 import { RoleSwitcher } from "./ui/RoleSwitcher";
 
 export function GuestDashboard() {
-  const { modules, hubs, rooms, guestAccess, updateModule, addActivity, isDarkMode, getHubById } = useApp();
+  const { devices, rooms, guestAccess, isDarkMode, addActivity } = useApp();
   const { showToast } = useToast();
 
+  // Get all modules from devices
+  const allModules = devices.flatMap(d => d.modules || []);
+
   // Filter modules based on guest allowed rooms
-  const allowedModules = modules.filter((module) =>
-    guestAccess.allowedRooms.some((roomId) =>
-      rooms.find(r => r.id === roomId)?.name === module.room
-    )
+  const allowedModules = allModules.filter((module) =>
+    guestAccess.allowedRooms.some((roomId) => roomId === module.roomId)
   );
 
   // Group modules by room
   const modulesByRoom = allowedModules.reduce((acc, module) => {
-    if (!acc[module.room]) {
-      acc[module.room] = [];
+    const roomId = module.roomId || '';
+    if (!acc[roomId]) {
+      acc[roomId] = [];
     }
-    acc[module.room].push(module);
+    acc[roomId].push(module);
     return acc;
-  }, {} as Record<string, typeof modules>);
+  }, {} as Record<string, typeof allModules>);
 
   const handleToggleModule = (moduleId: string, currentState: boolean | undefined) => {
-    const module = modules.find((m) => m.id === moduleId);
+    const module = allModules.find((m) => m.id === moduleId);
     if (!module || module.status === "offline") {
       showToast("Module is offline", "error");
       return;
