@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { Lightbulb, Fan, Thermometer, Droplets, Sun, Palette, HardDrive, Wifi, WifiOff, Cpu, Eye, Monitor } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Lightbulb, Fan, Thermometer, Droplets, Sun, Palette, HardDrive, Wifi, WifiOff, Cpu, Eye, Monitor, Plus, X, QrCode, Edit2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useApp } from "../contexts/AppContext";
+import { toast } from "sonner";
+import { useApp, type Device } from "../contexts/AppContext";
 import { useToast } from "../contexts/ToastContext";
 
 type ViewMode = "group-by-device" | "group-by-room" | "all-modules";
 
 export function DeviceControl() {
   const [viewMode, setViewMode] = useState<ViewMode>("group-by-device");
-  const { isDarkMode, devices, rooms } = useApp();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { isDarkMode, devices, rooms, addDevice, selectedHomeId } = useApp();
 
   // Get all modules from devices
   const currentHomeDevices = devices || [];
@@ -17,7 +20,27 @@ export function DeviceControl() {
 
   if (currentHomeModules.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Control
+            </h1>
+            <p className={isDarkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>
+              Manage and control all your modules
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors whitespace-nowrap w-full sm:w-auto"
+          >
+            <Plus className="w-5 h-5" />
+            Add Device
+          </button>
+        </div>
+
+        {/* Empty State */}
         <div className={`rounded-xl border ${
           isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
         } p-12 text-center`}>
@@ -28,12 +51,14 @@ export function DeviceControl() {
             No modules yet
           </h3>
           <p className={`mb-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-            You haven't added any modules yet. Add a hub with modules to get started.
+            You haven't added any modules yet. Add a device or hub with modules to get started.
           </p>
-          <button className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            Add Your First Hub
-          </button>
         </div>
+
+        {/* Add Device Modal */}
+        {showAddModal && (
+          <AddDeviceModal onClose={() => setShowAddModal(false)} addDevice={addDevice} rooms={rooms} isDarkMode={isDarkMode} homeId={selectedHomeId} />
+        )}
       </div>
     );
   }
@@ -41,7 +66,7 @@ export function DeviceControl() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className={`text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
             Control
@@ -51,25 +76,36 @@ export function DeviceControl() {
           </p>
         </div>
 
-        {/* View Toggle */}
-        <div className={`flex gap-1 rounded-lg p-1 ${
-          isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"
-        }`}>
-          <ViewToggleButton
-            label="Group by Device"
-            active={viewMode === "group-by-device"}
-            onClick={() => setViewMode("group-by-device")}
-          />
-          <ViewToggleButton
-            label="Group by Room"
-            active={viewMode === "group-by-room"}
-            onClick={() => setViewMode("group-by-room")}
-          />
-          <ViewToggleButton
-            label="All Modules"
-            active={viewMode === "all-modules"}
-            onClick={() => setViewMode("all-modules")}
-          />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Add Device Button */}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-5 h-5" />
+            Add Device
+          </button>
+
+          {/* View Toggle */}
+          <div className={`flex gap-1 rounded-lg p-1 ${
+            isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-100 border border-gray-200"
+          }`}>
+            <ViewToggleButton
+              label="Group by Device"
+              active={viewMode === "group-by-device"}
+              onClick={() => setViewMode("group-by-device")}
+            />
+            <ViewToggleButton
+              label="Group by Room"
+              active={viewMode === "group-by-room"}
+              onClick={() => setViewMode("group-by-room")}
+            />
+            <ViewToggleButton
+              label="All Modules"
+              active={viewMode === "all-modules"}
+              onClick={() => setViewMode("all-modules")}
+            />
+          </div>
         </div>
       </div>
 
@@ -84,6 +120,11 @@ export function DeviceControl() {
 
       {viewMode === "all-modules" && (
         <AllModulesView devices={currentHomeDevices} />
+      )}
+
+      {/* Add Device Modal */}
+      {showAddModal && (
+        <AddDeviceModal onClose={() => setShowAddModal(false)} addDevice={addDevice} rooms={rooms} isDarkMode={isDarkMode} homeId={selectedHomeId} />
       )}
     </div>
   );
@@ -108,7 +149,7 @@ function ViewToggleButton({ label, active, onClick }: { label: string; active: b
   );
 }
 
-interface Device {
+interface DisplayDevice {
   id: string;
   name: string;
   status: string;
@@ -125,7 +166,8 @@ interface Module {
   [key: string]: any;
 }
 
-function GroupByDeviceView({ devices }: { devices: Device[] }) {
+function GroupByDeviceView({ devices }: { devices: DisplayDevice[] }) {
+  const navigate = useNavigate();
   const { isDarkMode } = useApp();
 
   return (
@@ -140,8 +182,11 @@ function GroupByDeviceView({ devices }: { devices: Device[] }) {
           {/* Device Header */}
           <div className={`p-5 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              <button
+                onClick={() => navigate(`/devices/${device.id}`)}
+                className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
                 }`}>
                   <HardDrive className="w-5 h-5 text-blue-600" />
@@ -159,7 +204,18 @@ function GroupByDeviceView({ devices }: { devices: Device[] }) {
                     }`}></div>
                   </div>
                 </div>
-              </div>
+              </button>
+              <button
+                onClick={() => navigate(`/devices/${device.id}`)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0 ml-4 ${
+                  isDarkMode
+                    ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                }`}
+              >
+                <Edit2 className="w-4 h-4" />
+                <span className="text-sm">Edit</span>
+              </button>
             </div>
           </div>
 
@@ -183,14 +239,13 @@ function GroupByDeviceView({ devices }: { devices: Device[] }) {
   );
 }
 
-function GroupByRoomView({ rooms, devices }: { rooms: any[]; devices: Device[] }) {
+function GroupByRoomView({ rooms, devices }: { rooms: any[]; devices: DisplayDevice[] }) {
   const { isDarkMode } = useApp();
 
   return (
     <div className="space-y-8">
       {rooms.map((room) => {
-        const roomDevices = devices.filter(d => d.room === room.name || d.roomId === room.id);
-        const roomModules = roomDevices.flatMap(d => (d.modules || []).map(m => ({ ...m, deviceName: d.name, device: d })));
+        const roomModules = devices.flatMap(d => (d.modules || []).map(m => ({ ...m, deviceName: d.name, device: d })));
         
         return (
           <div key={room.id}>
@@ -209,7 +264,7 @@ function GroupByRoomView({ rooms, devices }: { rooms: any[]; devices: Device[] }
   );
 }
 
-function AllModulesView({ devices }: { devices: Device[] }) {
+function AllModulesView({ devices }: { devices: DisplayDevice[] }) {
   const { isDarkMode } = useApp();
   const allModules = devices.flatMap(d => (d.modules || []).map(m => ({ ...m, deviceName: d.name, device: d })));
 
@@ -222,7 +277,7 @@ function AllModulesView({ devices }: { devices: Device[] }) {
   );
 }
 
-function ModuleCard({ module, device, showDeviceInfo, showRoomInfo }: { module: Module; device: Device; showDeviceInfo?: boolean; showRoomInfo?: boolean }) {
+function ModuleCard({ module, device, showDeviceInfo, showRoomInfo }: { module: Module; device: DisplayDevice; showDeviceInfo?: boolean; showRoomInfo?: boolean }) {
   const { isDarkMode } = useApp();
   const { showToast } = useToast();
 
@@ -517,6 +572,219 @@ function ModuleCard({ module, device, showDeviceInfo, showRoomInfo }: { module: 
       <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
         {module.type}
       </p>
+    </div>
+  );
+}
+
+function AddDeviceModal({ 
+  onClose, 
+  addDevice, 
+  rooms, 
+  isDarkMode,
+  homeId
+}: { 
+  onClose: () => void; 
+  addDevice: (device: Device) => void;
+  rooms: any[];
+  isDarkMode: boolean;
+  homeId: string | null;
+}) {
+  const [activeTab, setActiveTab] = useState<"qr" | "manual">("qr");
+  const [formData, setFormData] = useState({
+    deviceId: "",
+    type: "light" as string,
+    room: rooms.length > 0 ? rooms[0].name : "Unassigned",
+    assignLater: false,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Generate device name based on room and type
+    const deviceName = formData.assignLater 
+      ? `${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`
+      : `${formData.room} ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`;
+    
+    // Create new device
+    const newDevice: Device = {
+      id: formData.deviceId || `${formData.type}-${Date.now()}`,
+      name: deviceName,
+      type: formData.type,
+      room: formData.assignLater ? "Unassigned" : formData.room,
+      homeId: homeId || "default-home",
+      status: "online",
+      modules: [],
+      state: {}
+    };
+    
+    addDevice(newDevice);
+    toast.success(`${deviceName} added successfully`, {
+      description: "New device has been added to your home",
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className={`rounded-xl shadow-2xl max-w-md w-full ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
+        <div className={`flex items-center justify-between p-6 border-b ${
+          isDarkMode ? "border-gray-700" : "border-gray-200"
+        }`}>
+          <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+            Add New Device
+          </h2>
+          <button 
+            onClick={onClose} 
+            className={isDarkMode ? "text-gray-400 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className={`flex border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+          <button
+            onClick={() => setActiveTab("qr")}
+            className={`flex-1 px-4 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === "qr"
+                ? "border-blue-600 text-blue-600"
+                : isDarkMode
+                ? "border-transparent text-gray-400 hover:text-gray-300"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            QR Code
+          </button>
+          <button
+            onClick={() => setActiveTab("manual")}
+            className={`flex-1 px-4 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === "manual"
+                ? "border-blue-600 text-blue-600"
+                : isDarkMode
+                ? "border-transparent text-gray-400 hover:text-gray-300"
+                : "border-transparent text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Manual Entry
+          </button>
+        </div>
+
+        <div className="p-6">
+          {activeTab === "qr" ? (
+            <div className="space-y-4">
+              <div className={`aspect-square rounded-lg flex items-center justify-center ${
+                isDarkMode ? "bg-gray-700" : "bg-gray-100"
+              }`}>
+                <div className="text-center">
+                  <QrCode className={`w-16 h-16 mx-auto mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`} />
+                  <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Position QR code in frame</p>
+                </div>
+              </div>
+              <p className={`text-sm text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                Alternatively, you can enter Device ID manually
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  Device ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter device ID"
+                  value={formData.deviceId}
+                  onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                      : "bg-white border-gray-300 text-gray-900"
+                  }`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  Device Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "bg-white border-gray-300 text-gray-900"
+                  }`}
+                >
+                  <option value="light">Light</option>
+                  <option value="fan">Fan</option>
+                  <option value="temperature">Temperature Sensor</option>
+                  <option value="humidity">Humidity Sensor</option>
+                  <option value="light-sensor">Light Sensor</option>
+                  <option value="rgb-light">RGB Light</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  Room
+                </label>
+                <select
+                  value={formData.room}
+                  onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "bg-white border-gray-300 text-gray-900"
+                  }`}
+                  disabled={formData.assignLater}
+                >
+                  {rooms && rooms.length > 0 ? (
+                    rooms.map((room: any) => (
+                      <option key={room.id} value={room.name}>{room.name}</option>
+                    ))
+                  ) : (
+                    <option value="Unassigned">Unassigned</option>
+                  )}
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.assignLater}
+                  onChange={(e) => setFormData({ ...formData, assignLater: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-600"
+                />
+                <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  Assign to room later
+                </span>
+              </label>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`flex-1 px-4 py-2 border rounded-lg font-medium ${
+                    isDarkMode
+                      ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Add Device
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

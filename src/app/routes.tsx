@@ -7,6 +7,7 @@ import { ForgotPassword } from "./components/ForgotPassword";
 import { ResetPassword } from "./components/ResetPassword";
 import { Dashboard } from "./components/Dashboard";
 import { DeviceControl } from "./components/DeviceControl";
+import { DeviceDetail } from "./components/DeviceDetail";
 import { ActivityLog } from "./components/ActivityLog";
 import { DeviceManagement } from "./components/DeviceManagement";
 import { HubManagement } from "./components/HubManagement";
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
     Component: MainLayout,
     children: [
       { index: true, Component: Dashboard },
+      { path: "devices/:deviceId", Component: DeviceDetail },
       { path: "devices", Component: DeviceControl },
       { path: "history", Component: ActivityLog },
       { path: "device-management", Component: DeviceManagement },

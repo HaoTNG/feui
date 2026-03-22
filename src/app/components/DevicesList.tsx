@@ -166,7 +166,8 @@ export function DevicesList() {
           {devices.map((device) => (
             <div
               key={device.id}
-              className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-all group ${
+              onClick={() => navigate(`/devices/${device.id}`)}
+              className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-all group cursor-pointer ${
                 isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
               }`}
             >
@@ -207,6 +208,7 @@ export function DevicesList() {
               {isOwner && (
                 <div className="flex gap-2">
                   <button
+                    onClick={() => navigate(`/devices/${device.id}`)}
                     className="flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors"
                     style={{
                       borderColor: isDarkMode ? "#4b5563" : "#e5e7eb",
