@@ -1,25 +1,43 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Edit2, Trash2, Share2, Power, AlertCircle } from "lucide-react";
+import { ArrowLeft, Edit2, Trash2, Share2, Power, AlertCircle, Home, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../contexts/AppContext";
 import { deviceService } from "../api/services/deviceService";
+import { moduleService } from "../api/services/moduleService";
+import type { ModuleType } from "../types/api";
 
 export function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
-  const { isDarkMode } = useApp();
+  const { isDarkMode, rooms } = useApp();
   
   const [device, setDevice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
+  const [movingRoom, setMovingRoom] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [modules, setModules] = useState<any[]>([]);
+  const [showAddModule, setShowAddModule] = useState(false);
+  const [newModule, setNewModule] = useState({ name: "", type: "TEMPERATURE" as ModuleType, channelId: "" });
+  const [editingModule, setEditingModule] = useState<string | null>(null);
+  const [editingModuleName, setEditingModuleName] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (deviceId) {
       fetchDeviceDetails();
+      fetchModules();
     }
   }, [deviceId]);
+
+  useEffect(() => {
+    if (device && !movingRoom) {
+      setSelectedRoomId(device.roomId || null);
+    }
+  }, [device, movingRoom]);
 
   const fetchDeviceDetails = async () => {
     try {
@@ -49,6 +67,103 @@ export function DeviceDetail() {
     } catch (error) {
       console.error("Error updating device name:", error);
       toast.error("Failed to update device name");
+    }
+  };
+
+  const handleMoveToRoom = async () => {
+    if (selectedRoomId === device.roomId) {
+      setMovingRoom(false);
+      return;
+    }
+
+    try {
+      setMovingRoom(true);
+      const updatedDevice = await deviceService.moveDevice(deviceId!, selectedRoomId);
+      setDevice(updatedDevice);
+      toast.success(`Device moved to ${updatedDevice.roomName || "Unassigned"}`);
+      setMovingRoom(false);
+    } catch (error) {
+      console.error("Error moving device:", error);
+      toast.error("Failed to move device to room");
+      setMovingRoom(false);
+      setSelectedRoomId(device.roomId || null);
+    }
+  };
+
+  const fetchModules = async () => {
+    try {
+      // For now, modules would come from device object or separate API
+      // Assuming device.modules contains the modules array
+      if (device?.modules) {
+        setModules(device.modules);
+      }
+    } catch (error) {
+      console.error("Error fetching modules:", error);
+    }
+  };
+
+  const handleAddModule = async () => {
+    if (!newModule.name.trim() || !newModule.channelId.trim()) {
+      toast.error("Please fill in all module fields");
+      return;
+    }
+
+    try {
+      const response = await moduleService.addModule(deviceId!, {
+        name: newModule.name,
+        type: newModule.type,
+        channelId: newModule.channelId,
+      });
+      setModules([...modules, response]);
+      setNewModule({ name: "", type: "TEMPERATURE", channelId: "" });
+      setShowAddModule(false);
+      toast.success("Module added successfully");
+    } catch (error) {
+      console.error("Error adding module:", error);
+      toast.error("Failed to add module");
+    }
+  };
+
+  const handleUpdateModuleName = async (moduleId: string) => {
+    if (!editingModuleName.trim()) {
+      toast.error("Module name cannot be empty");
+      return;
+    }
+
+    try {
+      const updatedModule = await moduleService.updateModuleName(moduleId, editingModuleName);
+      setModules(modules.map(m => m.id === moduleId ? updatedModule : m));
+      setEditingModule(null);
+      setEditingModuleName("");
+      toast.success("Module name updated successfully");
+    } catch (error) {
+      console.error("Error updating module name:", error);
+      toast.error("Failed to update module name");
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string) => {
+    try {
+      await moduleService.deleteModule(moduleId);
+      setModules(modules.filter(m => m.id !== moduleId));
+      toast.success("Module deleted successfully");
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      toast.error("Failed to delete module");
+    }
+  };
+
+  const handleDeleteDevice = async () => {
+    try {
+      setDeleting(true);
+      await deviceService.deleteDevice(deviceId!);
+      toast.success("Device deleted successfully");
+      setTimeout(() => navigate("/devices"), 1000);
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      toast.error("Failed to delete device");
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -199,9 +314,63 @@ export function DeviceDetail() {
             }`}>
               Room
             </h3>
-            <p className={`mt-2 text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-              {device.roomName || "Unassigned"}
-            </p>
+            {movingRoom ? (
+              <div className="mt-2 space-y-3">
+                <select
+                  value={selectedRoomId || ""}
+                  onChange={(e) => setSelectedRoomId(e.target.value || null)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "bg-white border-gray-300 text-gray-900"
+                  }`}
+                >
+                  <option value="">Unassigned</option>
+                  {rooms && rooms.map((room: any) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleMoveToRoom}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors text-sm"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMovingRoom(false);
+                      setSelectedRoomId(device.roomId || null);
+                    }}
+                    className={`px-3 py-2 border rounded-lg font-medium transition-colors text-sm ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center justify-between">
+                <p className={`text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                  {device.roomName || "Unassigned"}
+                </p>
+                <button
+                  onClick={() => setMovingRoom(true)}
+                  className={`text-sm font-medium transition-colors ${
+                    isDarkMode
+                      ? "text-blue-400 hover:text-blue-300"
+                      : "text-blue-600 hover:text-blue-700"
+                  }`}
+                >
+                  Change
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Created Date */}
@@ -230,6 +399,187 @@ export function DeviceDetail() {
         </div>
       </div>
 
+      {/* Modules Section */}
+      <div className={`rounded-xl border shadow-sm ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className={`p-6 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"} flex items-center justify-between`}>
+          <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+            Modules
+          </h2>
+          <button
+            onClick={() => setShowAddModule(!showAddModule)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors ${
+              isDarkMode
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            Add Module
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Add Module Form */}
+          {showAddModule && (
+            <div className={`border rounded-lg p-4 space-y-3 ${isDarkMode ? "border-gray-700 bg-gray-700" : "border-gray-200 bg-gray-50"}`}>
+              <input
+                type="text"
+                placeholder="Module Name"
+                value={newModule.name}
+                onChange={(e) => setNewModule({...newModule, name: e.target.value})}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                  isDarkMode
+                    ? "bg-gray-600 border-gray-500 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
+              />
+              <select
+                value={newModule.type}
+                onChange={(e) => setNewModule({...newModule, type: e.target.value as ModuleType})}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                  isDarkMode
+                    ? "bg-gray-600 border-gray-500 text-white"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
+              >
+                <option value="TEMPERATURE">Temperature</option>
+                <option value="HUMIDITY">Humidity</option>
+                <option value="LIGHT_SENSOR">Light Sensor</option>
+                <option value="MOTION">Motion</option>
+                <option value="LIGHT">Light</option>
+                <option value="FAN">Fan</option>
+                <option value="AC">Air Conditioner</option>
+                <option value="WATER_HEATER">Water Heater</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Channel ID"
+                value={newModule.channelId}
+                onChange={(e) => setNewModule({...newModule, channelId: e.target.value})}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                  isDarkMode
+                    ? "bg-gray-600 border-gray-500 text-white placeholder-gray-400"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddModule}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddModule(false);
+                    setNewModule({ name: "", type: "TEMPERATURE", channelId: "" });
+                  }}
+                  className={`flex-1 px-3 py-2 border rounded-lg font-medium transition-colors ${
+                    isDarkMode
+                      ? "border-gray-600 text-gray-300 hover:bg-gray-600"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Modules List */}
+          {modules && modules.length > 0 ? (
+            <div className="space-y-3">
+              {modules.map((module: any) => (
+                <div
+                  key={module.id}
+                  className={`border rounded-lg p-4 ${isDarkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {editingModule === module.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingModuleName}
+                            onChange={(e) => setEditingModuleName(e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                              isDarkMode
+                                ? "bg-gray-600 border-gray-500 text-white"
+                                : "bg-white border-gray-300 text-gray-900"
+                            }`}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleUpdateModuleName(module.id)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingModule(null);
+                                setEditingModuleName("");
+                              }}
+                              className={`px-3 py-1 border rounded text-sm transition-colors ${
+                                isDarkMode
+                                  ? "border-gray-600 text-gray-300 hover:bg-gray-600"
+                                  : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h4 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                            {module.name}
+                          </h4>
+                          <p className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            Type: {module.type} | Channel: {module.deviceChannelId}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {editingModule !== module.id && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingModule(module.id);
+                            setEditingModuleName(module.name);
+                          }}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode
+                              ? "text-blue-400 hover:bg-gray-600"
+                              : "text-blue-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteModule(module.id)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode
+                              ? "text-red-400 hover:bg-gray-600"
+                              : "text-red-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className={`text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              No modules added yet
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Actions */}
       <div className="flex gap-3">
         <button
@@ -252,7 +602,49 @@ export function DeviceDetail() {
           <Share2 className="w-5 h-5" />
           Share Device
         </button>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors flex items-center gap-2"
+        >
+          <Trash2 className="w-5 h-5" />
+          <span className="hidden sm:inline">Delete</span>
+        </button>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className={`rounded-xl border ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-6 space-y-4`}>
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-6 h-6 text-red-600" />
+            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              Delete Device
+            </h3>
+          </div>
+          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+            Are you sure you want to delete this device? This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleting}
+              className={`px-4 py-2 border rounded-lg font-medium transition-colors ${
+                isDarkMode
+                  ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteDevice}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete Device"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
