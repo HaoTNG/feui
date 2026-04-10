@@ -68,7 +68,7 @@ export interface UpdateUserRequest {
 export interface HomeDTO {
   id: string;
   name: string;
-  ownerUserId: string;
+  ownerId: string; // Actual API field name
   ownerName: string;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
@@ -283,6 +283,8 @@ export interface Module {
   createdAt: Date;
   // Current value (populated from IoT)
   value?: number | boolean | string;
+  // Status
+  status?: 'online' | 'offline';
   // For display
   displayValue?: string;
   unit?: string;

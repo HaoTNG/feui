@@ -24,13 +24,13 @@ export function convertDTOToHome(dto: HomeDTO): Home {
   return {
     id: dto.id,
     name: dto.name,
-    ownerUserId: dto.ownerUserId,
-    ownerName: dto.ownerName,
-    createdAt: new Date(dto.createdAt),
-    updatedAt: new Date(dto.updatedAt),
+    type: 'house', // Default type - can be customized later
+    address: undefined,
+    icon: 'home', // Default icon
+    isDefault: false, // Frontend can set this
     roomCount: 0, // Will be computed by frontend
     deviceCount: 0, // Will be computed by frontend
-    isDefault: false, // Frontend can set this
+    createdAt: new Date(dto.createdAt),
   };
 }
 

@@ -8,10 +8,10 @@ import { deviceService } from "../api/services/deviceService";
 import { toast } from "sonner";
 
 export function Homes() {
-  const { isDarkMode, userRole } = useApp();
+  const { isDarkMode, userRole, homes, addHome, deleteHome, homesLoading } = useApp();
   const navigate = useNavigate();
-  const [homes, setHomes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [displayedHomes, setDisplayedHomes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(homesLoading);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newHomeName, setNewHomeName] = useState("");
   const [creatingHome, setCreatingHome] = useState(false);
@@ -19,17 +19,17 @@ export function Homes() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    fetchHomes();
-  }, []);
+    // When homes from AppContext change, fetch counts and display them
+    fetchHomesWithCounts();
+  }, [homes]);
 
-  const fetchHomes = async () => {
+  const fetchHomesWithCounts = async () => {
     try {
       setLoading(true);
-      const homesData = await homeService.getHomes();
       
       // Fetch rooms and devices counts for each home
       const homesWithCounts = await Promise.all(
-        (homesData || []).map(async (home) => {
+        (homes || []).map(async (home) => {
           try {
             const [rooms, devices] = await Promise.all([
               roomService.getRoomsByHome(home.id),
@@ -51,9 +51,9 @@ export function Homes() {
         })
       );
       
-      setHomes(homesWithCounts);
+      setDisplayedHomes(homesWithCounts);
     } catch (error) {
-      console.error("Failed to fetch homes:", error);
+      console.error("Failed to fetch homes with counts:", error);
       toast.error("Failed to load homes");
     } finally {
       setLoading(false);
@@ -69,7 +69,8 @@ export function Homes() {
     setCreatingHome(true);
     try {
       const newHome = await homeService.createHome(newHomeName);
-      setHomes([...homes, newHome]);
+      // Update AppContext with the new home
+      addHome(newHome);
       setNewHomeName("");
       setShowCreateModal(false);
       toast.success("Home created successfully");
@@ -86,7 +87,8 @@ export function Homes() {
 
     try {
       await homeService.deleteHome(selectedHomeId);
-      setHomes(homes.filter(h => h.id !== selectedHomeId));
+      // Update AppContext by deleting the home
+      deleteHome(selectedHomeId);
       setShowDeleteConfirm(false);
       setSelectedHomeId(null);
       toast.success("Home deleted successfully");
@@ -132,7 +134,7 @@ export function Homes() {
       {/* Homes Grid */}
       {!loading && (
         <>
-          {homes.length === 0 ? (
+          {displayedHomes.length === 0 ? (
             <div className={`rounded-xl p-12 text-center ${isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-gray-50 border border-gray-200"}`}>
               <Home className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`} />
               <p className={`text-lg font-medium mb-4 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -153,7 +155,7 @@ export function Homes() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {homes.map((home) => (
+              {displayedHomes.map((home) => (
                 <div
                   key={home.id}
                   className={`rounded-xl shadow-sm border p-6 hover:shadow-md transition-all cursor-pointer group ${

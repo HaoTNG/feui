@@ -1,17 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, ChevronLeft, Trash2, Pencil, Loader2, Wifi, WifiOff, HardDrive } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useApp } from "../contexts/AppContext";
 import { deviceService } from "../api/services/deviceService";
-import { roomService } from "../api/services/roomService";
 import { toast } from "sonner";
+import { convertDTOToDevice } from "../utils/converters";
 
 export function DevicesList() {
-  const { isDarkMode, userRole, selectedHomeId } = useApp();
+  const { isDarkMode, userRole, selectedHomeId, devices, rooms, devicesLoading, roomsLoading, addDevice, deleteDevice } = useApp();
   const navigate = useNavigate();
 
-  const [devices, setDevices] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState("");
   const [newDeviceFirmwareId, setNewDeviceFirmwareId] = useState("");
@@ -20,33 +18,9 @@ export function DevicesList() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [showDeleteDeviceConfirm, setShowDeleteDeviceConfirm] = useState(false);
   const [deletingDevice, setDeletingDevice] = useState(false);
-  const [rooms, setRooms] = useState<any[]>([]);
 
   const isOwner = userRole === "owner";
-
-  useEffect(() => {
-    if (selectedHomeId) {
-      fetchDevices();
-    }
-  }, [selectedHomeId]);
-
-  const fetchDevices = async () => {
-    if (!selectedHomeId) return;
-    try {
-      setLoading(true);
-      const [devicesData, roomsData] = await Promise.all([
-        deviceService.getDevicesByHome(selectedHomeId),
-        roomService.getRoomsByHome(selectedHomeId),
-      ]);
-      setDevices(devicesData || []);
-      setRooms(roomsData || []);
-    } catch (error) {
-      console.error("Failed to fetch devices:", error);
-      toast.error("Failed to fetch devices");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = devicesLoading || roomsLoading;
 
   const handleAddDevice = async () => {
     if (!selectedHomeId || !newDeviceName.trim() || !newDeviceFirmwareId.trim()) {
@@ -56,12 +30,14 @@ export function DevicesList() {
 
     setAddingDevice(true);
     try {
-      const newDevice = await deviceService.createDevice(selectedHomeId, {
+      const newDeviceDTO = await deviceService.createDevice(selectedHomeId, {
         name: newDeviceName.trim(),
         firmwareId: newDeviceFirmwareId.trim(),
         roomId: newDeviceRoomId,
       });
-      setDevices([...devices, newDevice]);
+      // Convert DTO to Device model
+      const newDevice = convertDTOToDevice(newDeviceDTO);
+      addDevice(newDevice);
       setNewDeviceName("");
       setNewDeviceFirmwareId("");
       setNewDeviceRoomId(null);
@@ -81,7 +57,7 @@ export function DevicesList() {
     setDeletingDevice(true);
     try {
       await deviceService.deleteDevice(selectedDeviceId);
-      setDevices(devices.filter(d => d.id !== selectedDeviceId));
+      deleteDevice(selectedDeviceId);
       setShowDeleteDeviceConfirm(false);
       setSelectedDeviceId(null);
       toast.success("Device deleted successfully");

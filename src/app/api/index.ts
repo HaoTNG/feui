@@ -18,6 +18,8 @@ export {
   deviceService,
   moduleService,
   memberService,
+  websocketService,
+  mockWebSocketService,
 } from './services';
 
 // Types

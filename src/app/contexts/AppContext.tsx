@@ -5,15 +5,16 @@ import {
   deviceService, 
   userService,
   memberService,
-  authService 
+  authService,
+  websocketService,
+  mockWebSocketService
 } from "../api";
-import type { UserProfile } from "../types/api";
+import { initializeMockData } from "../api/services/mockDataInitializer";
+import type { UserProfile, ModuleType, Module as APIModule, Device as APIDevice } from "../types/api";
+import type { WebSocketData, WebSocketMessage } from "../api/services/websocketService";
 
-export type ModuleType = "temperature" | "humidity" | "light-sensor" | "fan" | "led" | "pir-motion" | "lcd-display";
-export type ModuleStatus = "online" | "offline";
 export type UserRole = "owner" | "family" | "guest";
 export type HomeType = "apartment" | "house" | "condo" | "townhouse" | "other";
-export type DeviceStatus = "online" | "offline";
 
 export interface Home {
   id: string;
@@ -27,38 +28,9 @@ export interface Home {
   createdAt: Date;
 }
 
-// Device - Physical IoT device with nested modules
-export interface Module {
-  id: string;
-  name: string;
-  type: ModuleType;
-  status: ModuleStatus;
-  value?: number | boolean | string;
-  displayValue?: string;
-  unit?: string;
-  temperature?: number;
-  humidity?: number;
-  lux?: number;
-  motion?: boolean;
-  isOn?: boolean;
-  speed?: number;
-  color?: string;
-  brightness?: number;
-}
-
-export interface Device {
-  id: string;
-  name: string;
-  type: string;
-  room?: string;
-  roomId?: string;
-  homeId: string;
-  status: DeviceStatus;
-  modules: Module[];
-  firmwareId?: string;
-  state?: Record<string, any>;
-  addedDate?: Date;
-}
+// Re-export module and device types from API types
+export type Module = APIModule;
+export type Device = APIDevice;
 
 export interface Activity {
   id: string;
@@ -220,6 +192,11 @@ interface AppContextType {
   updateUserProfile: (updates: Partial<UserProfile>) => void;
   updateUserProfileAsync: (updates: Partial<UserProfile>) => Promise<any>;
   userProfileLoading: boolean;
+  
+  // WebSocket
+  websocketConnected: boolean;
+  websocketData: WebSocketData[];
+  websocketStatus: 'connected' | 'disconnected' | 'error' | 'connecting';
   
   // Toast notifications
   showToast: (message: string, type: "success" | "error" | "info") => void;
@@ -448,14 +425,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     role: "family",
   });
 
+  // WebSocket state
+  const [websocketConnected, setWebsocketConnected] = useState(false);
+  const [websocketStatus, setWebsocketStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('disconnected');
+  const [websocketData, setWebsocketData] = useState<WebSocketData[]>([]);
+
   const isDarkMode = theme === "dark";
   
-  // Debug: Log user state changes
+  // Validate token on app mount - only restore user state, don't redirect yet
   useEffect(() => {
-    console.log('[AppContext] user state changed:', user);
-    // Mark auth initialization as complete
-    setAuthLoading(false);
-  }, []);
+    const validateToken = async () => {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const savedUser = localStorage.getItem('smartHome_user') || sessionStorage.getItem('smartHome_user');
+      
+      // If no token or user stored, just mark auth as initialized
+      if (!authToken || !savedUser) {
+        console.log('[AppContext] No stored token found');
+        setAuthLoading(false);
+        return;
+      }
+      
+      try {
+        setAuthLoading(true);
+        console.log('[AppContext] Restoring user from storage...');
+        
+        // Restore user state from storage
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        console.log('[AppContext] User restored:', parsedUser.email);
+        
+        // Token will be validated when fetchUserProfile runs
+      } catch (error) {
+        console.error('[AppContext] Failed to restore user:', error);
+        setAuthLoading(false);
+      }
+    };
+    
+    validateToken();
+  }, []); // Run only once on mount
   
   // Fetch homes on mount
   useEffect(() => {
@@ -504,12 +511,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log('[AppContext] Fetching rooms for home:', selectedHomeId);
         const roomsData = await roomService.getRoomsByHome(selectedHomeId);
         console.log('[AppContext] Rooms fetched:', roomsData);
-        setRooms(roomsData || []);
+        
+        // Use mock data if API returns empty
+        if (!roomsData || roomsData.length === 0) {
+          console.log('[AppContext] No rooms from API, using mock data');
+          const { rooms: mockRoomsData } = initializeMockData();
+          setRooms(mockRoomsData);
+        } else {
+          setRooms(roomsData);
+        }
         setRoomsError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         setRoomsError(err);
         console.error("[AppContext] Failed to fetch rooms:", err);
+        
+        // Fall back to mock data on error
+        console.log('[AppContext] Falling back to mock rooms data');
+        const { rooms: mockRoomsData } = initializeMockData();
+        setRooms(mockRoomsData);
       } finally {
         setRoomsLoading(false);
       }
@@ -531,12 +551,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log('[AppContext] Fetching devices for home:', selectedHomeId);
         const devicesData = await deviceService.getDevicesByHome(selectedHomeId);
         console.log('[AppContext] Devices fetched:', devicesData);
-        setDevices(devicesData || []);
+        
+        // Use mock data if API returns empty
+        if (!devicesData || devicesData.length === 0) {
+          console.log('[AppContext] No devices from API, using mock data');
+          const { devices: mockDevicesData } = initializeMockData();
+          setDevices(mockDevicesData);
+        } else {
+          setDevices(devicesData);
+        }
         setDevicesError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         setDevicesError(err);
         console.error("[AppContext] Failed to fetch devices:", err);
+        
+        // Fall back to mock data on error
+        console.log('[AppContext] Falling back to mock devices data');
+        const { devices: mockDevicesData } = initializeMockData();
+        setDevices(mockDevicesData);
       } finally {
         setDevicesLoading(false);
       }
@@ -545,15 +578,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchDevices();
   }, [selectedHomeId]);
   
-  // Fetch user profile when authenticated
+  // Fetch user profile when authenticated - validates token
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user?.isAuthenticated) {
+        setAuthLoading(false);
         return;
       }
       
       try {
         setUserProfileLoading(true);
+        setAuthLoading(true);
         const userData = await userService.getCurrentUser();
         if (userData) {
           setUserProfile({
@@ -566,15 +601,135 @@ export function AppProvider({ children }: { children: ReactNode }) {
             role: user?.role || "family",
             avatar: userData.name?.substring(0, 2).toUpperCase() || "U"
           });
+          console.log('[AppContext] User profile loaded successfully');
         }
+        setAuthLoading(false);
       } catch (error) {
         console.error("Failed to fetch user profile:", error);
+        const statusCode = (error as any)?.statusCode;
+        const message = (error as any)?.message;
+        
+        // Token invalid (401) or network error - logout
+        if (statusCode === 401 || message?.includes('Network Error') || message?.includes('CORS')) {
+          console.warn('[AppContext] Token invalid or expired - logging out');
+          // Clear everything
+          localStorage.removeItem('authToken');
+          sessionStorage.removeItem('authToken');
+          localStorage.removeItem('smartHome_user');
+          sessionStorage.removeItem('smartHome_user');
+          setUser(null);
+          setHomes([]);
+          setDevices([]);
+          setRooms([]);
+          setSelectedHomeId(null);
+        }
+        setAuthLoading(false);
       } finally {
         setUserProfileLoading(false);
       }
     };
     
     fetchUserProfile();
+  }, [user?.isAuthenticated]);
+  
+  // Setup WebSocket connection when user is authenticated
+  useEffect(() => {
+    if (!user?.isAuthenticated) {
+      // Disconnect WebSocket if user logs out
+      setWebsocketStatus('disconnected');
+      setWebsocketConnected(false);
+      mockWebSocketService.stop();
+      return;
+    }
+
+    // Start mock WebSocket simulation immediately
+    setWebsocketStatus('connecting');
+    console.log('[AppContext] Using Mock WebSocket Service (testing)...');
+    
+    // Start mock WebSocket simulation
+    mockWebSocketService.start();
+    setWebsocketConnected(true);
+    setWebsocketStatus('connected');
+
+    // Handle incoming WebSocket messages
+    const unsubscribeMessage = mockWebSocketService.onMessage((message: WebSocketMessage) => {
+      console.log('[AppContext] Received WebSocket message:', message);
+      
+      // Store the data
+      setWebsocketData((prev) => {
+        // Keep last 100 messages
+        const newData = [...prev, message.data];
+        return newData.slice(-100);
+      });
+
+      // Process specific message types and update state
+      if (message.type === 'device' && message.data.deviceId) {
+        // Update device status
+        setDevices((prevDevices) =>
+          prevDevices.map((device) =>
+            device.id === message.data.deviceId
+              ? {
+                  ...device,
+                  status: message.data.status || device.status,
+                  ...(message.data.modules && { modules: message.data.modules })
+                }
+              : device
+          )
+        );
+      } else if (message.type === 'module' && message.data.moduleId && message.data.deviceId) {
+        // Update module status within a device
+        setDevices((prevDevices) =>
+          prevDevices.map((device) =>
+            device.id === message.data.deviceId
+              ? {
+                  ...device,
+                  modules: device.modules?.map((module) =>
+                    module.id === message.data.moduleId
+                      ? {
+                          ...module,
+                          status: message.data.status || module.status,
+                          temperature: message.data.temperature ?? module.temperature,
+                          humidity: message.data.humidity ?? module.humidity,
+                          value: message.data.value ?? module.value,
+                        }
+                      : module
+                  ),
+                }
+              : device
+          )
+        );
+      } else if (message.type === 'room' && message.data.roomId) {
+        // Update room stats
+        setRooms((prevRooms) =>
+          prevRooms.map((room) =>
+            room.id === message.data.roomId
+              ? {
+                  ...room,
+                  temperature: message.data.temperature ?? room.temperature,
+                  humidity: message.data.humidity ?? room.humidity,
+                  lightLevel: message.data.lightLevel ?? room.lightLevel,
+                  temperatureTrend: message.data.temperatureTrend ?? room.temperatureTrend,
+                  humidityStatus: message.data.humidityStatus ?? room.humidityStatus,
+                  lightStatus: message.data.lightStatus ?? room.lightStatus,
+                }
+              : room
+          )
+        );
+      }
+
+      // Add activity log for important events
+      // Note: addActivity is defined later, can be moved here if needed
+      if (message.type === 'alert' || message.type === 'event') {
+        console.log('[AppContext] Alert/Event activity:', message.data);
+      }
+    });
+
+    // Cleanup function - unsubscribe from messages when user logs out
+    return () => {
+      console.log('[AppContext] Cleaning up WebSocket connection...');
+      unsubscribeMessage();
+      mockWebSocketService.stop();
+    };
   }, [user?.isAuthenticated]);
   
   // Login function - now async and uses authService
@@ -883,6 +1038,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateUserProfile,
         updateUserProfileAsync,
         userProfileLoading,
+        
+        // WebSocket
+        websocketConnected,
+        websocketData,
+        websocketStatus,
         
         // Toast
         showToast,

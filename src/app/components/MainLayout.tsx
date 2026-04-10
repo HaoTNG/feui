@@ -163,8 +163,8 @@ export function MainLayout() {
             </button>
           </div>
 
-          {/* Home Selector */}
-          {!sidebarCollapsed && userRole === "owner" && <HomeSelector />}
+          {/* Home Selector - Always show for owners, adapt display for collapsed state */}
+          {userRole === "owner" && <HomeSelector />}
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 overflow-y-auto">

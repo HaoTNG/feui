@@ -5,7 +5,7 @@ import { TimeDisplay } from "./TimeDisplay";
 import { EnvironmentStats } from "./ui/EnvironmentStats";
 
 export function Dashboard() {
-  const { devices, activities, rooms, isDarkMode, userProfile } = useApp();
+  const { devices, activities, rooms, isDarkMode, userProfile, websocketConnected, websocketStatus } = useApp();
   const navigate = useNavigate();
   
   const currentHour = new Date().getHours();
@@ -40,17 +40,17 @@ export function Dashboard() {
   // Function to get module icon
   const getModuleIcon = (type: string) => {
     switch (type) {
-      case "temperature":
+      case "TEMPERATURE":
         return Thermometer;
-      case "humidity":
+      case "HUMIDITY":
         return Droplets;
-      case "light-sensor":
+      case "LIGHT_SENSOR":
         return Sun;
-      case "fan":
+      case "FAN":
         return Fan;
-      case "led":
+      case "LIGHT":
         return Lightbulb;
-      case "pir-motion":
+      case "MOTION":
         return AlertTriangle;
       default:
         return Cpu;
@@ -67,7 +67,26 @@ export function Dashboard() {
           </h1>
           <p className={isDarkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>{today}</p>
         </div>
-        <TimeDisplay />
+        <div className="flex items-center gap-4">
+          {/* WebSocket Status Indicator */}
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+            websocketConnected
+              ? isDarkMode ? "bg-green-900/30 text-green-400" : "bg-green-50 text-green-700"
+              : websocketStatus === 'connecting'
+              ? isDarkMode ? "bg-yellow-900/30 text-yellow-400" : "bg-yellow-50 text-yellow-700"
+              : isDarkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-700"
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              websocketConnected
+                ? "bg-green-500 animate-pulse"
+                : websocketStatus === 'connecting'
+                ? "bg-yellow-500 animate-pulse"
+                : "bg-red-500"
+            }`} />
+            <span>{websocketConnected ? "Real-time Connected" : websocketStatus === 'connecting' ? "Connecting..." : "Disconnected"}</span>
+          </div>
+          <TimeDisplay />
+        </div>
       </div>
 
       {/* Quick Stats Row */}
@@ -114,6 +133,124 @@ export function Dashboard() {
           >
             Go to Homes
           </button>
+        </div>
+      </div>
+
+      {/* Real-time Sensor Data Table */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Cpu className={`w-6 h-6 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`} />
+          <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+            Real-time Sensor Readings
+          </h2>
+        </div>
+        <div className={`rounded-xl shadow-sm border overflow-hidden ${
+          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+        }`}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className={isDarkMode ? "bg-gray-700" : "bg-gray-50"}>
+                <tr>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Device</th>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Room</th>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Sensor Type</th>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Value</th>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Unit</th>
+                  <th className={`px-6 py-3 text-left text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>Status</th>
+                </tr>
+              </thead>
+              <tbody className={isDarkMode ? "divide-gray-700" : "divide-gray-200"}>
+                {currentHomeDevices.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className={`px-6 py-8 text-center text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      No devices found
+                    </td>
+                  </tr>
+                ) : (
+                  currentHomeDevices.flatMap((device) =>
+                    device.modules?.map((module, index) => {
+                      const roomName = device.roomName || currentHomeRooms.find((r) => r.id === device.roomId)?.name || "Unknown";
+                      let unit = "";
+                      let displayValue = module.value;
+
+                      switch (module.type) {
+                        case "TEMPERATURE":
+                          unit = "°C";
+                          displayValue = module.value;
+                          break;
+                        case "HUMIDITY":
+                          unit = "%";
+                          displayValue = module.value;
+                          break;
+                        case "LIGHT_SENSOR":
+                          unit = "lux";
+                          displayValue = module.value;
+                          break;
+                        case "MOTION":
+                          unit = "status";
+                          displayValue = module.value ? "Detected" : "No motion";
+                          break;
+                        default:
+                          unit = "";
+                          break;
+                      }
+
+                      const Icon = getModuleIcon(module.type);
+
+                      return (
+                        <tr
+                          key={`${device.id}-${module.id}`}
+                          className={`border-b ${isDarkMode ? "border-gray-700 hover:bg-gray-700/50" : "border-gray-200 hover:bg-gray-50"}`}
+                        >
+                          <td className={`px-6 py-4 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-900"}`}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4 text-blue-500" />
+                              {device.name}
+                            </div>
+                          </td>
+                          <td className={`px-6 py-4 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            {roomName}
+                          </td>
+                          <td className={`px-6 py-4 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              module.type === "TEMPERATURE"
+                                ? isDarkMode ? "bg-orange-900/30 text-orange-300" : "bg-orange-100 text-orange-800"
+                                : module.type === "HUMIDITY"
+                                ? isDarkMode ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-800"
+                                : module.type === "LIGHT_SENSOR"
+                                ? isDarkMode ? "bg-yellow-900/30 text-yellow-300" : "bg-yellow-100 text-yellow-800"
+                                : isDarkMode ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-800"
+                            }`}>
+                              {module.type}
+                            </span>
+                          </td>
+                          <td className={`px-6 py-4 text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                            {typeof displayValue === "number" ? displayValue.toFixed(1) : displayValue}
+                          </td>
+                          <td className={`px-6 py-4 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            {unit}
+                          </td>
+                          <td className={`px-6 py-4 text-sm`}>
+                            {module.status === "online" ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-green-600">Online</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-gray-500" />
+                                <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Offline</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }) || []
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
