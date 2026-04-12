@@ -7,9 +7,9 @@ import {
   memberService,
   authService,
   websocketService,
-  mockWebSocketService
+  // mockWebSocketService // TEMPORARILY DISABLED FOR API TESTING
 } from "../api";
-import { initializeMockData } from "../api/services/mockDataInitializer";
+// import { initializeMockData } from "../api/services/mockDataInitializer"; // TEMPORARILY DISABLED FOR API TESTING
 import type { UserProfile, ModuleType, Module as APIModule, Device as APIDevice } from "../types/api";
 import type { WebSocketData, WebSocketMessage } from "../api/services/websocketService";
 
@@ -513,13 +513,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log('[AppContext] Rooms fetched:', roomsData);
         
         // Use mock data if API returns empty
-        if (!roomsData || roomsData.length === 0) {
-          console.log('[AppContext] No rooms from API, using mock data');
-          const { rooms: mockRoomsData } = initializeMockData();
-          setRooms(mockRoomsData);
-        } else {
-          setRooms(roomsData);
-        }
+        // TEMPORARILY DISABLED FOR API TESTING
+        // if (!roomsData || roomsData.length === 0) {
+        //   console.log('[AppContext] No rooms from API, using mock data');
+        //   const { rooms: mockRoomsData } = initializeMockData();
+        //   setRooms(mockRoomsData);
+        // } else {
+        setRooms(roomsData || []);
+        // }
         setRoomsError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -527,9 +528,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("[AppContext] Failed to fetch rooms:", err);
         
         // Fall back to mock data on error
-        console.log('[AppContext] Falling back to mock rooms data');
-        const { rooms: mockRoomsData } = initializeMockData();
-        setRooms(mockRoomsData);
+        // TEMPORARILY DISABLED FOR API TESTING
+        // console.log('[AppContext] Falling back to mock rooms data');
+        // const { rooms: mockRoomsData } = initializeMockData();
+        setRooms([]);
       } finally {
         setRoomsLoading(false);
       }
@@ -553,13 +555,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log('[AppContext] Devices fetched:', devicesData);
         
         // Use mock data if API returns empty
-        if (!devicesData || devicesData.length === 0) {
-          console.log('[AppContext] No devices from API, using mock data');
-          const { devices: mockDevicesData } = initializeMockData();
-          setDevices(mockDevicesData);
-        } else {
-          setDevices(devicesData);
-        }
+        // TEMPORARILY DISABLED FOR API TESTING
+        // if (!devicesData || devicesData.length === 0) {
+        //   console.log('[AppContext] No devices from API, using mock data');
+        //   const { devices: mockDevicesData } = initializeMockData();
+        //   setDevices(mockDevicesData);
+        // } else {
+        setDevices(devicesData || []);
+        // }
         setDevicesError(null);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -567,9 +570,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("[AppContext] Failed to fetch devices:", err);
         
         // Fall back to mock data on error
-        console.log('[AppContext] Falling back to mock devices data');
-        const { devices: mockDevicesData } = initializeMockData();
-        setDevices(mockDevicesData);
+        // TEMPORARILY DISABLED FOR API TESTING
+        // console.log('[AppContext] Falling back to mock devices data');
+        // const { devices: mockDevicesData } = initializeMockData();
+        setDevices([]);
       } finally {
         setDevicesLoading(false);
       }
@@ -638,14 +642,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Disconnect WebSocket if user logs out
       setWebsocketStatus('disconnected');
       setWebsocketConnected(false);
-      mockWebSocketService.stop();
+      // mockWebSocketService.stop(); // DISABLED
       return;
     }
 
+    // TEMPORARILY DISABLED MOCK WEBSOCKET FOR API TESTING
+    // All WebSocket mock data broadcasts have been disabled
+    // to keep console clean and test real API calls
+    setWebsocketStatus('disconnected');
+    setWebsocketConnected(false);
+    return;
+
+    /*
+    // ORIGINAL CODE (DISABLED)
     // Start mock WebSocket simulation immediately
     setWebsocketStatus('connecting');
-    console.log('[AppContext] Using Mock WebSocket Service (testing)...');
-    
     // Start mock WebSocket simulation
     mockWebSocketService.start();
     setWebsocketConnected(true);
@@ -730,6 +741,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       unsubscribeMessage();
       mockWebSocketService.stop();
     };
+    */
   }, [user?.isAuthenticated]);
   
   // Login function - now async and uses authService

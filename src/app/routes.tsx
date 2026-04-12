@@ -9,7 +9,7 @@ import { Dashboard } from "./components/Dashboard";
 import { DeviceControl } from "./components/DeviceControl";
 import { DeviceDetail } from "./components/DeviceDetail";
 import { ActivityLog } from "./components/ActivityLog";
-import { DeviceManagement } from "./components/DeviceManagement";
+import { SmartDeviceManagement } from "./components/SmartDeviceManagement";
 import { HubManagement } from "./components/HubManagement";
 import { HubDetail } from "./components/HubDetail";
 import { ModulesManagement } from "./components/ModulesManagement";
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
       { path: "devices/:deviceId", Component: DeviceDetail },
       { path: "devices", Component: DeviceControl },
       { path: "history", Component: ActivityLog },
-      { path: "device-management", Component: DeviceManagement },
+      { path: "device-management", Component: SmartDeviceManagement },
       { path: "hub-management", Component: HubManagement },
       { path: "hub-management/:hubId", Component: HubDetail },
       { path: "modules", Component: ModulesManagement },

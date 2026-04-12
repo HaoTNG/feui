@@ -134,6 +134,7 @@ export interface DeviceDTO {
   homeId: string;
   roomId: string | null; // null = Unassigned
   roomName: string; // "Unassigned" if null
+  status: "ONLINE" | "OFFLINE"; // Device connection status
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }
@@ -153,19 +154,7 @@ export interface MoveDeviceRequest {
 }
 
 export interface SendCommandRequest {
-  command: string;
-  value: any;
-}
-
-/**
- * Device Commands - Enum của các command types
- */
-export enum DeviceCommand {
-  POWER = "POWER",
-  SET_BRIGHTNESS = "SET_BRIGHTNESS",
-  SET_TEMPERATURE = "SET_TEMPERATURE",
-  SET_SPEED = "SET_SPEED",
-  SET_COLOR = "SET_COLOR",
+  payload: string; // JSON string format: {"action": 1} or {"action": 0}
 }
 
 export interface DeviceState {
@@ -178,25 +167,39 @@ export interface DeviceState {
 }
 
 // ============================================================
+// 6B. DEVICE CHANNELS
+// ============================================================
+
+export interface DeviceChannelDTO {
+  id: string;
+  firmwareId: string;
+  deviceId: string;
+  channel: number;
+  createdAt: string; // ISO 8601
+  inUsed: boolean; // Is channel already used by a module
+}
+
+// ============================================================
 // 7. MODULE MANAGEMENT
 // ============================================================
 
 export type ModuleType =
   | "TEMPERATURE"
   | "HUMIDITY"
-  | "LIGHT_SENSOR"
   | "MOTION"
   | "LIGHT"
   | "FAN"
-  | "AC"
-  | "WATER_HEATER";
+  | "SWITCH"
+  | "LED"
+  | "LCD";
 
 export interface ModuleDTO {
   id: string;
   name: string;
+  state: string; // Current value like "25.5" for temperature
   type: ModuleType;
   deviceChannelId: string;
-  deviceId: string;
+  status: "ONLINE" | "OFFLINE";
   createdAt: string; // ISO 8601
 }
 
@@ -208,6 +211,10 @@ export interface AddModuleRequest {
 
 export interface UpdateModuleNameRequest {
   name: string;
+}
+
+export interface SendModuleCommandRequest {
+  payload: string; // JSON string format: {"action": 1} or {"action": 0}
 }
 
 // ============================================================

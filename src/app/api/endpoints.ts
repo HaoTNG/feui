@@ -63,6 +63,8 @@ export const API_ENDPOINTS = {
     UPDATE_NAME: (deviceId: string) => `/devices/${deviceId}/name`,
     MOVE_ROOM: (deviceId: string) => `/devices/${deviceId}/move-room`,
     DELETE: (deviceId: string) => `/devices/${deviceId}`,
+    // Device Channels
+    GET_CHANNELS: (deviceId: string) => `/devices/${deviceId}/channels`,
     // Device Control
     SEND_COMMAND: (deviceId: string) => `/devices/${deviceId}/commands`,
     GET_STATE: (deviceId: string) => `/devices/${deviceId}/state`,
@@ -76,6 +78,8 @@ export const API_ENDPOINTS = {
     GET: (moduleId: string) => `/modules/${moduleId}`,
     UPDATE_NAME: (moduleId: string) => `/modules/${moduleId}/name`,
     DELETE: (moduleId: string) => `/modules/${moduleId}`,
+    // Module Control
+    SEND_COMMAND: (moduleId: string) => `/modules/${moduleId}/commands`,
   },
 } as const;
 

@@ -19,6 +19,7 @@ import {
   Building2,
   Server,
   Cpu,
+  Zap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link, Outlet } from "react-router";
@@ -40,6 +41,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
+  { name: "Device Management", path: "/device-management", icon: Zap, roles: ["owner"] },
   { name: "Hub Management", path: "/hub-management", icon: Server, roles: ["owner"] },
   { name: "Modules", path: "/modules", icon: Cpu, roles: ["owner"] },
   { name: "Room Management", path: "/room-management", icon: Home, roles: ["owner"] },

@@ -4,12 +4,12 @@
  */
 
 import type {
-  ApiResponse,
   DeviceDTO,
   CreateDeviceRequest,
   UpdateDeviceNameRequest,
   MoveDeviceRequest,
   SendCommandRequest,
+  DeviceChannelDTO,
   DeviceState,
 } from '../../types/api';
 import { apiRequest } from '../client';
@@ -22,10 +22,13 @@ class DeviceService {
    */
   async getDevicesByHome(homeId: string): Promise<DeviceDTO[]> {
     try {
-      const response = await apiRequest<DeviceDTO[]>('get', API_ENDPOINTS.DEVICES.LIST(homeId));
+      const endpoint = API_ENDPOINTS.DEVICES.LIST(homeId);
+      console.log('[deviceService] Fetching devices from:', endpoint);
+      const response = await apiRequest<DeviceDTO[]>('get', endpoint);
+      console.log('[deviceService] Response:', response);
       return response.data || [];
     } catch (error) {
-      console.error(`Failed to fetch devices for home ${homeId}:`, error);
+      console.error(`[deviceService] Failed to fetch devices for home ${homeId}:`, error);
       throw error;
     }
   }
@@ -117,12 +120,29 @@ class DeviceService {
   }
 
   /**
-   * Send command to device
+   * Get device channels
    */
-  async sendCommand(deviceId: string, command: string, value: any): Promise<void> {
+  async getDeviceChannels(deviceId: string): Promise<DeviceChannelDTO[]> {
     try {
-      const payload: SendCommandRequest = { command, value };
-      await apiRequest<void>('post', API_ENDPOINTS.DEVICES.SEND_COMMAND(deviceId), payload);
+      const endpoint = API_ENDPOINTS.DEVICES.GET_CHANNELS(deviceId);
+      console.log('[deviceService] Fetching channels from:', endpoint);
+      const response = await apiRequest<DeviceChannelDTO[]>('get', endpoint);
+      console.log('[deviceService] Channels response:', response);
+      return response.data || [];
+    } catch (error) {
+      console.error(`[deviceService] Failed to fetch channels for device ${deviceId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send command to device (deprecated - use moduleService instead)
+   * @deprecated Use moduleService.sendCommand instead
+   */
+  async sendCommand(deviceId: string, payload: string): Promise<void> {
+    try {
+      const commandPayload: SendCommandRequest = { payload };
+      await apiRequest<void>('post', API_ENDPOINTS.DEVICES.SEND_COMMAND(deviceId), commandPayload);
     } catch (error) {
       console.error('Failed to send command:', error);
       throw error;

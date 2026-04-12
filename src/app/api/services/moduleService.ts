@@ -3,7 +3,7 @@
  * Handles module operations on devices
  */
 
-import type { ApiResponse, ModuleDTO, AddModuleRequest, UpdateModuleNameRequest } from '../../types/api';
+import type { ModuleDTO, AddModuleRequest, UpdateModuleNameRequest, SendModuleCommandRequest } from '../../types/api';
 import { apiRequest } from '../client';
 import API_ENDPOINTS from '../endpoints';
 
@@ -71,6 +71,44 @@ class ModuleService {
       console.error('Failed to delete module:', error);
       throw error;
     }
+  }
+
+  /**
+   * Send control command to module
+   * @param moduleId - Module ID to control
+   * @param payload - JSON string command payload (e.g., '{"action": 1}' or '{"action": 0}')
+   */
+  async sendCommand(moduleId: string, payload: string): Promise<void> {
+    try {
+      const endpoint = API_ENDPOINTS.MODULES.SEND_COMMAND(moduleId);
+      console.log('[moduleService] Sending command to module:', moduleId);
+      console.log('[moduleService] Command endpoint:', endpoint);
+      console.log('[moduleService] Command payload:', payload);
+      const commandPayload: SendModuleCommandRequest = { payload };
+      await apiRequest<void>('post', endpoint, commandPayload);
+      console.log('[moduleService] Command sent successfully');
+    } catch (error) {
+      console.error('[moduleService] Failed to send module command:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper: Toggle module (send action 1 for on, 0 for off)
+   */
+  async toggle(moduleId: string, on: boolean): Promise<void> {
+    const action = on ? 1 : 0;
+    const payload = JSON.stringify({ action });
+    return this.sendCommand(moduleId, payload);
+  }
+
+  /**
+   * Helper: Send command with value
+   * Useful for brightness, speed, color, etc.
+   */
+  async sendWithValue(moduleId: string, action: number, key: string, value: any): Promise<void> {
+    const payload = JSON.stringify({ [key]: value, action });
+    return this.sendCommand(moduleId, payload);
   }
 }
 
