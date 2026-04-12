@@ -1,9 +1,11 @@
 import { Plus, Power, Settings, Trash2, QrCode, X, AlertCircle } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useApp, type Device } from "../contexts/AppContext";
 
 export function DeviceManagement() {
+  const navigate = useNavigate();
   const { devices, deleteDevice, isDarkMode, addDevice, rooms } = useApp();
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteDeviceId, setDeleteDeviceId] = useState<string | null>(null);
@@ -115,7 +117,11 @@ export function DeviceManagement() {
             </thead>
             <tbody className={`divide-y ${isDarkMode ? "divide-gray-700" : "divide-gray-200"}`}>
               {devices.map((device) => (
-                <tr key={device.id} className={isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"}>
+                <tr 
+                  key={device.id} 
+                  onClick={() => navigate(`/devices/${device.id}`)}
+                  className={`cursor-pointer transition-colors ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"}`}
+                >
                   <td className={`px-6 py-4 text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                     {device.name}
                   </td>
@@ -148,7 +154,7 @@ export function DeviceManagement() {
                   <td className={`px-6 py-4 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                     Today
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <button className={`p-1.5 rounded transition-colors ${
                         isDarkMode

@@ -187,6 +187,7 @@ export type ModuleType =
   | "TEMPERATURE"
   | "HUMIDITY"
   | "MOTION"
+  | "LIGHT_SENSOR"
   | "LIGHT"
   | "FAN"
   | "SWITCH"

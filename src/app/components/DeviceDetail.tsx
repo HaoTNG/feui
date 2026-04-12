@@ -4,8 +4,57 @@ import { ArrowLeft, Edit2, Trash2, Share2, Power, AlertCircle, Home, Plus, X } f
 import { toast } from "sonner";
 import { useApp } from "../contexts/AppContext";
 import { deviceService } from "../api/services/deviceService";
-import { moduleService } from "../api/services/moduleService";
-import type { ModuleType } from "../types/api";
+import { ModuleControl } from "./ModuleControl";
+import type { ModuleDTO, ModuleType } from "../types/api";
+
+// Mock modules for device control
+const MOCK_DEVICE_MODULES: ModuleDTO[] = [
+  {
+    id: "module-light-1",
+    name: "Main Light",
+    type: "LIGHT",
+    state: "0",
+    deviceChannelId: "channel-1",
+    status: "ONLINE",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "module-fan-1",
+    name: "Ceiling Fan",
+    type: "FAN",
+    state: "0",
+    deviceChannelId: "channel-2",
+    status: "ONLINE",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "module-switch-1",
+    name: "Power Switch",
+    type: "SWITCH",
+    state: "0",
+    deviceChannelId: "channel-3",
+    status: "ONLINE",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "module-led-1",
+    name: "RGB LED",
+    type: "LED",
+    state: "0",
+    deviceChannelId: "channel-4",
+    status: "ONLINE",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "module-lcd-1",
+    name: "LCD Display",
+    type: "LCD",
+    state: "0",
+    deviceChannelId: "channel-5",
+    status: "ONLINE",
+    createdAt: new Date().toISOString(),
+  },
+];
 
 export function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
@@ -18,18 +67,13 @@ export function DeviceDetail() {
   const [newName, setNewName] = useState("");
   const [movingRoom, setMovingRoom] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [modules, setModules] = useState<any[]>([]);
-  const [showAddModule, setShowAddModule] = useState(false);
-  const [newModule, setNewModule] = useState({ name: "", type: "TEMPERATURE" as ModuleType, channelId: "" });
-  const [editingModule, setEditingModule] = useState<string | null>(null);
-  const [editingModuleName, setEditingModuleName] = useState("");
+  const [modules, setModules] = useState<ModuleDTO[]>(MOCK_DEVICE_MODULES);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (deviceId) {
       fetchDeviceDetails();
-      fetchModules();
     }
   }, [deviceId]);
 
@@ -90,75 +134,12 @@ export function DeviceDetail() {
     }
   };
 
-  const fetchModules = async () => {
-    try {
-      // For now, modules would come from device object or separate API
-      // Assuming device.modules contains the modules array
-      if (device?.modules) {
-        setModules(device.modules);
-      }
-    } catch (error) {
-      console.error("Error fetching modules:", error);
-    }
-  };
-
-  const handleAddModule = async () => {
-    if (!newModule.name.trim() || !newModule.channelId.trim()) {
-      toast.error("Please fill in all module fields");
-      return;
-    }
-
-    try {
-      const response = await moduleService.addModule(deviceId!, {
-        name: newModule.name,
-        type: newModule.type,
-        channelId: newModule.channelId,
-      });
-      setModules([...modules, response]);
-      setNewModule({ name: "", type: "TEMPERATURE", channelId: "" });
-      setShowAddModule(false);
-      toast.success("Module added successfully");
-    } catch (error) {
-      console.error("Error adding module:", error);
-      toast.error("Failed to add module");
-    }
-  };
-
-  const handleUpdateModuleName = async (moduleId: string) => {
-    if (!editingModuleName.trim()) {
-      toast.error("Module name cannot be empty");
-      return;
-    }
-
-    try {
-      const updatedModule = await moduleService.updateModuleName(moduleId, editingModuleName);
-      setModules(modules.map(m => m.id === moduleId ? updatedModule : m));
-      setEditingModule(null);
-      setEditingModuleName("");
-      toast.success("Module name updated successfully");
-    } catch (error) {
-      console.error("Error updating module name:", error);
-      toast.error("Failed to update module name");
-    }
-  };
-
-  const handleDeleteModule = async (moduleId: string) => {
-    try {
-      await moduleService.deleteModule(moduleId);
-      setModules(modules.filter(m => m.id !== moduleId));
-      toast.success("Module deleted successfully");
-    } catch (error) {
-      console.error("Error deleting module:", error);
-      toast.error("Failed to delete module");
-    }
-  };
-
   const handleDeleteDevice = async () => {
     try {
       setDeleting(true);
       await deviceService.deleteDevice(deviceId!);
       toast.success("Device deleted successfully");
-      setTimeout(() => navigate("/devices"), 1000);
+      setTimeout(() => navigate("/device-management"), 1000);
     } catch (error) {
       console.error("Error deleting device:", error);
       toast.error("Failed to delete device");
@@ -401,213 +382,57 @@ export function DeviceDetail() {
 
       {/* Modules Section */}
       <div className={`rounded-xl border shadow-sm ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-        <div className={`p-6 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"} flex items-center justify-between`}>
+        <div className={`p-6 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
           <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-            Modules
+            Device Controls
           </h2>
-          <button
-            onClick={() => setShowAddModule(!showAddModule)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors ${
-              isDarkMode
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            Add Module
-          </button>
+          <p className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+            Manage and control device modules
+          </p>
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Add Module Form */}
-          {showAddModule && (
-            <div className={`border rounded-lg p-4 space-y-3 ${isDarkMode ? "border-gray-700 bg-gray-700" : "border-gray-200 bg-gray-50"}`}>
-              <input
-                type="text"
-                placeholder="Module Name"
-                value={newModule.name}
-                onChange={(e) => setNewModule({...newModule, name: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                  isDarkMode
-                    ? "bg-gray-600 border-gray-500 text-white placeholder-gray-400"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
-              />
-              <select
-                value={newModule.type}
-                onChange={(e) => setNewModule({...newModule, type: e.target.value as ModuleType})}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                  isDarkMode
-                    ? "bg-gray-600 border-gray-500 text-white"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
-              >
-                <option value="TEMPERATURE">Temperature</option>
-                <option value="HUMIDITY">Humidity</option>
-                <option value="LIGHT_SENSOR">Light Sensor</option>
-                <option value="MOTION">Motion</option>
-                <option value="LIGHT">Light</option>
-                <option value="FAN">Fan</option>
-                <option value="AC">Air Conditioner</option>
-                <option value="WATER_HEATER">Water Heater</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Channel ID"
-                value={newModule.channelId}
-                onChange={(e) => setNewModule({...newModule, channelId: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                  isDarkMode
-                    ? "bg-gray-600 border-gray-500 text-white placeholder-gray-400"
-                    : "bg-white border-gray-300 text-gray-900"
-                }`}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddModule}
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddModule(false);
-                    setNewModule({ name: "", type: "TEMPERATURE", channelId: "" });
-                  }}
-                  className={`flex-1 px-3 py-2 border rounded-lg font-medium transition-colors ${
-                    isDarkMode
-                      ? "border-gray-600 text-gray-300 hover:bg-gray-600"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Modules List */}
           {modules && modules.length > 0 ? (
-            <div className="space-y-3">
-              {modules.map((module: any) => (
-                <div
+            <div className="space-y-4">
+              {modules.map((module) => (
+                <ModuleControl 
                   key={module.id}
-                  className={`border rounded-lg p-4 ${isDarkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      {editingModule === module.id ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editingModuleName}
-                            onChange={(e) => setEditingModuleName(e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-                              isDarkMode
-                                ? "bg-gray-600 border-gray-500 text-white"
-                                : "bg-white border-gray-300 text-gray-900"
-                            }`}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleUpdateModuleName(module.id)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingModule(null);
-                                setEditingModuleName("");
-                              }}
-                              className={`px-3 py-1 border rounded text-sm transition-colors ${
-                                isDarkMode
-                                  ? "border-gray-600 text-gray-300 hover:bg-gray-600"
-                                  : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                              }`}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <h4 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                            {module.name}
-                          </h4>
-                          <p className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                            Type: {module.type} | Channel: {module.deviceChannelId}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {editingModule !== module.id && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingModule(module.id);
-                            setEditingModuleName(module.name);
-                          }}
-                          className={`p-2 rounded transition-colors ${
-                            isDarkMode
-                              ? "text-blue-400 hover:bg-gray-600"
-                              : "text-blue-600 hover:bg-gray-100"
-                          }`}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteModule(module.id)}
-                          className={`p-2 rounded transition-colors ${
-                            isDarkMode
-                              ? "text-red-400 hover:bg-gray-600"
-                              : "text-red-600 hover:bg-gray-100"
-                          }`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  module={module} 
+                  isDarkMode={isDarkMode}
+                  onStateChange={(newState) => {
+                    // Update module state in local array
+                    setModules(modules.map(m => m.id === module.id ? { ...m, state: newState } : m));
+                  }}
+                />
               ))}
             </div>
           ) : (
             <p className={`text-center py-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-              No modules added yet
+              No modules available
             </p>
           )}
         </div>
       </div>
-
       {/* Actions */}
       <div className="flex gap-3">
         <button
+          onClick={() => navigate("/device-management")}
           className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
             isDarkMode
               ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          <Power className="w-5 h-5" />
-          Control Device
-        </button>
-        <button
-          className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-            isDarkMode
-              ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          <Share2 className="w-5 h-5" />
-          Share Device
+          <ArrowLeft className="w-5 h-5" />
+          Back to Devices
         </button>
         <button
           onClick={() => setShowDeleteConfirm(true)}
           className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors flex items-center gap-2"
         >
           <Trash2 className="w-5 h-5" />
-          <span className="hidden sm:inline">Delete</span>
+          <span className="hidden sm:inline">Delete Device</span>
         </button>
       </div>
 

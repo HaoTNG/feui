@@ -32,7 +32,7 @@ export function SmartDeviceManagement() {
   } = useDeviceControl();
 
   // Module control
-  const { modules, addModule, deleteModule, toggle, setBrightness, isCommandLoading } =
+  const { modules, addModule, deleteModule, toggle, setBrightness, setSpeed, setColor, isCommandLoading, getModule } =
     useModuleControl();
 
   // Local state
@@ -81,6 +81,27 @@ export function SmartDeviceManagement() {
     }
   }, [selectedDevice?.id, fetchChannels]);
 
+  // Load modules for selected device from its channels
+  useEffect(() => {
+    if (selectedDevice && channels.length > 0) {
+      console.log('[SmartDeviceManagement] Loading modules from channels:', channels);
+      
+      const loadModulesForDevice = async () => {
+        try {
+          // Note: Backend doesn't provide module IDs in channels response
+          // ModuleDTO has deviceChannelId which links to channel
+          // For now, we show modules that have been created in this session
+          // A backend enhancement would be to GET /devices/{deviceId}/modules endpoint
+          console.log('[SmartDeviceManagement] Module state:', Array.from(modules.values()));
+        } catch (err) {
+          console.error('[SmartDeviceManagement] Error loading modules:', err);
+        }
+      };
+
+      loadModulesForDevice();
+    }
+  }, [selectedDevice?.id, channels, modules]);
+
   // Filter devices by search
   const filteredDevices = devices.filter((device) =>
     device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,10 +109,11 @@ export function SmartDeviceManagement() {
   );
 
   // Get modules for selected device
-  const deviceModules = selectedDevice
-    ? Array.from(modules.values()).filter((m) => 
-        m.deviceChannelId !== undefined && m.deviceChannelId !== null
-      )
+  const deviceModules = selectedDevice && channels.length > 0
+    ? Array.from(modules.values()).filter((m) => {
+        // Module belongs to this device if its deviceChannelId matches one of this device's channels
+        return channels.some((ch) => ch.id === m.deviceChannelId);
+      })
     : [];
 
   // Handle create device
@@ -462,7 +484,7 @@ export function SmartDeviceManagement() {
                   <option value=''>-- Chọn kênh --</option>
                   {channels.map((ch) => (
                     <option key={ch.id} value={ch.id}>
-                      {ch.name} ({ch.id})
+                      Channel {ch.channel} {ch.inUsed ? '(in use)' : '(available)'}
                     </option>
                   ))}
                 </select>
