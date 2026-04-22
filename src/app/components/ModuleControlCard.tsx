@@ -6,8 +6,8 @@
 import { FC, useState, useRef } from 'react';
 import { Settings, Loader } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ModuleDTO } from '../../types/api';
-import { useModuleControl } from '../../hooks/useModuleControl';
+import type { ModuleDTO } from '../types/api';
+import { useModuleControl } from '../hooks/useModuleControl';
 
 interface ModuleControlCardProps {
   module: ModuleDTO;

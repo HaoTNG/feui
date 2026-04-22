@@ -152,7 +152,7 @@ function ViewToggleButton({ label, active, onClick }: { label: string; active: b
 interface DisplayDevice {
   id: string;
   name: string;
-  status: string;
+  status?: string;
   modules?: Module[];
 }
 
@@ -160,7 +160,7 @@ interface Module {
   id: string;
   name: string;
   type: string;
-  status: string;
+  status?: string;
   feed?: string;
   room?: string;
   [key: string]: any;
@@ -607,14 +607,17 @@ function AddDeviceModal({
     
     // Create new device
     const newDevice: Device = {
-      id: formData.deviceId || `${formData.type}-${Date.now()}`,
+      id: formData.deviceId || `device-${Date.now()}`,
+      firmwareId: formData.deviceId || `firmware-${Date.now()}`,
       name: deviceName,
-      type: formData.type,
-      room: formData.assignLater ? "Unassigned" : formData.room,
       homeId: homeId || "default-home",
+      roomId: formData.assignLater ? null : null,
+      roomName: formData.assignLater ? "Unassigned" : formData.room,
       status: "online",
       modules: [],
-      state: {}
+      state: {},
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     addDevice(newDevice);

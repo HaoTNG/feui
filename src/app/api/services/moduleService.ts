@@ -76,9 +76,9 @@ class ModuleService {
   /**
    * Send control command to module
    * @param moduleId - Module ID to control
-   * @param payload - JSON string command payload (e.g., '{"action": 1}' or '{"action": 0}')
+   * @param payload - Number payload (e.g., 1 for ON, 0 for OFF)
    */
-  async sendCommand(moduleId: string, payload: string): Promise<void> {
+  async sendCommand(moduleId: string, payload: number): Promise<void> {
     try {
       const endpoint = API_ENDPOINTS.MODULES.SEND_COMMAND(moduleId);
       console.log('[moduleService] Sending command to module:', moduleId);
@@ -94,21 +94,20 @@ class ModuleService {
   }
 
   /**
-   * Helper: Toggle module (send action 1 for on, 0 for off)
+   * Helper: Toggle module (send 1 for on, 0 for off)
    */
   async toggle(moduleId: string, on: boolean): Promise<void> {
-    const action = on ? 1 : 0;
-    const payload = JSON.stringify({ action });
+    const payload = on ? 1 : 0;
     return this.sendCommand(moduleId, payload);
   }
 
   /**
    * Helper: Send command with value
    * Useful for brightness, speed, color, etc.
+   * For now, simplified to send the value as payload
    */
-  async sendWithValue(moduleId: string, action: number, key: string, value: any): Promise<void> {
-    const payload = JSON.stringify({ [key]: value, action });
-    return this.sendCommand(moduleId, payload);
+  async sendWithValue(moduleId: string, value: number): Promise<void> {
+    return this.sendCommand(moduleId, value);
   }
 }
 

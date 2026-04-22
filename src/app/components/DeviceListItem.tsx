@@ -5,7 +5,7 @@
 
 import { FC, useState } from 'react';
 import { Trash2, MapPin, Edit2, ChevronRight } from 'lucide-react';
-import type { DeviceDTO } from '../../types/api';
+import type { DeviceDTO } from '../types/api';
 
 interface DeviceListItemProps {
   device: DeviceDTO;

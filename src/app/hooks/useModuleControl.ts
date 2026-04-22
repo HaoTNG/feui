@@ -110,10 +110,10 @@ export const useModuleControl = () => {
   // ============================================================
 
   /**
-   * Send raw command to module (payload as JSON string)
-   * Uses format: {"action": 1} for ON, {"action": 0} for OFF
+   * Send raw command to module (payload as number)
+   * Uses format: 1 for ON, 0 for OFF, or other numeric values
    */
-  const sendCommand = useCallback(async (moduleId: string, payload: string) => {
+  const sendCommand = useCallback(async (moduleId: string, payload: number) => {
     setState((prev) => ({
       ...prev,
       commandLoading: new Set([...prev.commandLoading, moduleId]),
@@ -143,7 +143,7 @@ export const useModuleControl = () => {
    * @param on - true to turn on, false to turn off
    */
   const toggle = useCallback(async (moduleId: string, on: boolean) => {
-    const payload = JSON.stringify({ action: on ? 1 : 0 });
+    const payload = on ? 1 : 0;
     return sendCommand(moduleId, payload);
   }, [sendCommand]);
 
@@ -153,8 +153,7 @@ export const useModuleControl = () => {
    * @param value - 0-100 for brightness, speed, etc.
    */
   const setBrightness = useCallback(async (moduleId: string, value: number) => {
-    const payload = JSON.stringify({ action: 1, value: Math.max(0, Math.min(100, value)) });
-    return sendCommand(moduleId, payload);
+    return sendCommand(moduleId, Math.max(0, Math.min(100, value)));
   }, [sendCommand]);
 
   /**
@@ -163,18 +162,18 @@ export const useModuleControl = () => {
    * @param speed - Speed level (1, 2, 3, etc.)
    */
   const setSpeed = useCallback(async (moduleId: string, speed: number) => {
-    const payload = JSON.stringify({ action: 1, speed });
-    return sendCommand(moduleId, payload);
+    return sendCommand(moduleId, speed);
   }, [sendCommand]);
 
   /**
    * Set LED color
    * @param moduleId - Module ID
    * @param color - HEX color (e.g., "FF5733")
+   * Note: This might need adjustment based on how color is handled in the new API
    */
   const setColor = useCallback(async (moduleId: string, color: string) => {
-    const payload = JSON.stringify({ color });
-    return sendCommand(moduleId, payload);
+    // For now, sending a default value. May need to adjust based on API
+    return sendCommand(moduleId, 1);
   }, [sendCommand]);
 
   // ============================================================

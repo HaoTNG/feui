@@ -5,11 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Home, Grid, Zap, AlertCircle, CheckCircle } from 'lucide-react';
-import { useDeviceControl } from '../../hooks/useDeviceControl';
-import { useModuleControl } from '../../hooks/useModuleControl';
-import { DeviceListItem } from '../../components/DeviceListItem';
-import { ModuleControlCard } from '../../components/ModuleControlCard';
-import type { DeviceDTO } from '../../types/api';
+import { useDeviceControl } from '../hooks/useDeviceControl';
+import { useModuleControl } from '../hooks/useModuleControl';
+import { DeviceListItem } from '../components/DeviceListItem';
+import { ModuleControlCard } from '../components/ModuleControlCard';
+import type { DeviceDTO } from '../types/api';
 
 /**
  * Complete page showing device management and control

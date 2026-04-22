@@ -7,11 +7,11 @@ import {
   memberService,
   authService,
   websocketService,
-  // mockWebSocketService // TEMPORARILY DISABLED FOR API TESTING
 } from "../api";
-// import { initializeMockData } from "../api/services/mockDataInitializer"; // TEMPORARILY DISABLED FOR API TESTING
 import type { UserProfile, ModuleType, Module as APIModule, Device as APIDevice } from "../types/api";
-import type { WebSocketData, WebSocketMessage } from "../api/services/websocketService";
+import type { AnyWebSocketMessage, SensorWebSocketMessage, WebSocketMessage } from "../api/services/websocketService";
+import WebSocketService from "../api/services/websocketService";
+import { parseSensorData, validateSensorMessage, getHumidityStatus, getTemperatureWarning, getLightLevelDescription, getMotionDisplay } from "../utils/sensorDataParser";
 
 export type UserRole = "owner" | "family" | "guest";
 export type HomeType = "apartment" | "house" | "condo" | "townhouse" | "other";
@@ -642,96 +642,145 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Disconnect WebSocket if user logs out
       setWebsocketStatus('disconnected');
       setWebsocketConnected(false);
-      // mockWebSocketService.stop(); // DISABLED
+      websocketService.disconnect();
       return;
     }
 
-    // TEMPORARILY DISABLED MOCK WEBSOCKET FOR API TESTING
-    // All WebSocket mock data broadcasts have been disabled
-    // to keep console clean and test real API calls
-    setWebsocketStatus('disconnected');
-    setWebsocketConnected(false);
-    return;
-
-    /*
-    // ORIGINAL CODE (DISABLED)
-    // Start mock WebSocket simulation immediately
+    // Connect to real WebSocket server
     setWebsocketStatus('connecting');
-    // Start mock WebSocket simulation
-    mockWebSocketService.start();
-    setWebsocketConnected(true);
-    setWebsocketStatus('connected');
-
-    // Handle incoming WebSocket messages
-    const unsubscribeMessage = mockWebSocketService.onMessage((message: WebSocketMessage) => {
-      console.log('[AppContext] Received WebSocket message:', message);
-      
-      // Store the data
-      setWebsocketData((prev) => {
-        // Keep last 100 messages
-        const newData = [...prev, message.data];
-        return newData.slice(-100);
+    
+    websocketService.connect()
+      .then(() => {
+        setWebsocketConnected(true);
+        setWebsocketStatus('connected');
+        console.log('[AppContext] Connected to WebSocket server');
+      })
+      .catch((error) => {
+        console.error('[AppContext] Failed to connect to WebSocket:', error);
+        setWebsocketStatus('error');
+        setWebsocketConnected(false);
       });
 
-      // Process specific message types and update state
-      if (message.type === 'device' && message.data.deviceId) {
-        // Update device status
-        setDevices((prevDevices) =>
-          prevDevices.map((device) =>
-            device.id === message.data.deviceId
-              ? {
-                  ...device,
-                  status: message.data.status || device.status,
-                  ...(message.data.modules && { modules: message.data.modules })
-                }
-              : device
-          )
-        );
-      } else if (message.type === 'module' && message.data.moduleId && message.data.deviceId) {
-        // Update module status within a device
-        setDevices((prevDevices) =>
-          prevDevices.map((device) =>
-            device.id === message.data.deviceId
-              ? {
-                  ...device,
-                  modules: device.modules?.map((module) =>
-                    module.id === message.data.moduleId
-                      ? {
-                          ...module,
-                          status: message.data.status || module.status,
-                          temperature: message.data.temperature ?? module.temperature,
-                          humidity: message.data.humidity ?? module.humidity,
-                          value: message.data.value ?? module.value,
-                        }
-                      : module
-                  ),
-                }
-              : device
-          )
-        );
-      } else if (message.type === 'room' && message.data.roomId) {
-        // Update room stats
-        setRooms((prevRooms) =>
-          prevRooms.map((room) =>
-            room.id === message.data.roomId
-              ? {
-                  ...room,
-                  temperature: message.data.temperature ?? room.temperature,
-                  humidity: message.data.humidity ?? room.humidity,
-                  lightLevel: message.data.lightLevel ?? room.lightLevel,
-                  temperatureTrend: message.data.temperatureTrend ?? room.temperatureTrend,
-                  humidityStatus: message.data.humidityStatus ?? room.humidityStatus,
-                  lightStatus: message.data.lightStatus ?? room.lightStatus,
-                }
-              : room
-          )
-        );
-      }
+    // Subscribe to status changes
+    const unsubscribeStatus = websocketService.onStatusChange((status) => {
+      setWebsocketStatus(status);
+      setWebsocketConnected(status === 'connected');
+    });
 
-      // Add activity log for important events
-      // Note: addActivity is defined later, can be moved here if needed
-      if (message.type === 'alert' || message.type === 'event') {
-        console.log('[AppContext] Alert/Event activity:', message.data);
+    // Handle incoming WebSocket messages
+    const unsubscribeMessage = websocketService.onMessage((message: AnyWebSocketMessage) => {
+      console.log('[AppContext] Received WebSocket message:', message);
+      
+      // Handle sensor data format (from server IoT)
+      if (WebSocketService.isSensorMessage(message)) {
+        const sensorMsg = message as SensorWebSocketMessage;
+        
+        // Validate message
+        const validation = validateSensorMessage(sensorMsg);
+        if (!validation.valid) {
+          console.warn('[AppContext] Invalid sensor message:', validation.errors);
+          return;
+        }
+
+        // Parse sensor data
+        const parsed = parseSensorData(sensorMsg);
+        
+        // Store raw data
+        setWebsocketData((prev) => {
+          const newData = [...prev, {
+            ...sensorMsg,
+            value: parsed.value,
+            displayValue: parsed.displayValue,
+            unit: parsed.unit,
+            timestamp: sensorMsg.timestamp || Date.now(),
+          }];
+          return newData.slice(-100); // Keep last 100 messages
+        });
+
+        // Update modules based on sensor data
+        // We would need device -> module mapping from the backend API
+        // For now, we'll update devices that have matching sensors
+        console.log('[AppContext] Parsed sensor data:', parsed);
+
+        // Update activity log if important
+        if (parsed.type === 'MOTION' && parsed.value === true) {
+          addActivity({
+            type: 'system',
+            action: 'Motion Detected',
+            detail: `Motion detected in device ${sensorMsg.firmwareId}`,
+            success: true,
+            triggeredBy: 'system',
+          });
+        }
+      }
+      // Handle generic message format (backward compatibility)
+      else if (WebSocketService.isGenericMessage(message)) {
+        const genericMsg = message as WebSocketMessage;
+        
+        // Store the data
+        setWebsocketData((prev) => {
+          const newData = [...prev, genericMsg.data];
+          return newData.slice(-100);
+        });
+
+        // Process specific message types and update state
+        if (genericMsg.type === 'device' && genericMsg.data.deviceId) {
+          // Update device status
+          setDevices((prevDevices) =>
+            prevDevices.map((device) =>
+              device.id === genericMsg.data.deviceId
+                ? {
+                    ...device,
+                    status: genericMsg.data.status || device.status,
+                    ...(genericMsg.data.modules && { modules: genericMsg.data.modules })
+                  }
+                : device
+            )
+          );
+        } else if (genericMsg.type === 'module' && genericMsg.data.moduleId && genericMsg.data.deviceId) {
+          // Update module status within a device
+          setDevices((prevDevices) =>
+            prevDevices.map((device) =>
+              device.id === genericMsg.data.deviceId
+                ? {
+                    ...device,
+                    modules: device.modules?.map((module) =>
+                      module.id === genericMsg.data.moduleId
+                        ? {
+                            ...module,
+                            status: genericMsg.data.status || module.status,
+                            value: genericMsg.data.value ?? module.value,
+                            displayValue: genericMsg.data.displayValue ?? module.displayValue,
+                          }
+                        : module
+                    ),
+                  }
+                : device
+            )
+          );
+        } else if (genericMsg.type === 'room' && genericMsg.data.roomId) {
+          // Update room stats
+          setRooms((prevRooms) =>
+            prevRooms.map((room) =>
+              room.id === genericMsg.data.roomId
+                ? {
+                    ...room,
+                    temperature: genericMsg.data.temperature ?? room.temperature,
+                    humidity: genericMsg.data.humidity ?? room.humidity,
+                    lightLevel: genericMsg.data.lightLevel ?? room.lightLevel,
+                    temperatureTrend: genericMsg.data.temperatureTrend ?? room.temperatureTrend,
+                    humidityStatus: genericMsg.data.humidityStatus ?? room.humidityStatus,
+                    lightStatus: genericMsg.data.lightStatus ?? room.lightStatus,
+                  }
+                : room
+            )
+          );
+        }
+
+        // Add activity log for important events
+        if (genericMsg.type === 'alert' || genericMsg.type === 'event') {
+          console.log('[AppContext] Alert/Event activity:', genericMsg.data);
+        }
       }
     });
 
@@ -739,9 +788,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log('[AppContext] Cleaning up WebSocket connection...');
       unsubscribeMessage();
-      mockWebSocketService.stop();
+      unsubscribeStatus();
+      websocketService.disconnect();
     };
-    */
   }, [user?.isAuthenticated]);
   
   // Login function - now async and uses authService

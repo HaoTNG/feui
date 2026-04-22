@@ -1,8 +1,26 @@
 /**
  * WebSocket Service
  * Handles real-time data connection from ws://localhost:8080/ws
+ * Supports both sensor data format and generic message format
  */
 
+import type { ModuleType } from '../../types/api';
+
+// ============================================================
+// SENSOR DATA MESSAGE FORMAT (from server IoT data)
+// ============================================================
+export interface SensorWebSocketMessage {
+  firmwareId: string;
+  category: 'data' | 'command' | 'status';
+  type: ModuleType;
+  channel: number;
+  payload: string;
+  timestamp?: number;
+}
+
+// ============================================================
+// GENERIC MESSAGE FORMAT (backward compatibility)
+// ============================================================
 export interface WebSocketData {
   id?: string;
   timestamp?: number;
@@ -17,7 +35,12 @@ export interface WebSocketMessage {
   timestamp: number;
 }
 
-type WebSocketCallback = (data: WebSocketMessage) => void;
+// ============================================================
+// UNION TYPE FOR ALL MESSAGE FORMATS
+// ============================================================
+export type AnyWebSocketMessage = SensorWebSocketMessage | WebSocketMessage;
+
+type WebSocketCallback = (data: AnyWebSocketMessage) => void;
 type WebSocketStatusCallback = (status: 'connected' | 'disconnected' | 'error') => void;
 
 class WebSocketService {
@@ -48,9 +71,25 @@ class WebSocketService {
 
         this.ws.onmessage = (event) => {
           try {
-            const message = JSON.parse(event.data) as WebSocketMessage;
-            console.log('[WebSocket] Received message:', message);
-            this.notifyMessageCallbacks(message);
+            const rawMessage = JSON.parse(event.data);
+            
+            // Handle sensor data format (from server IoT)
+            if (rawMessage.firmwareId && rawMessage.category && rawMessage.type && rawMessage.channel !== undefined) {
+              const sensorMessage = rawMessage as SensorWebSocketMessage;
+              console.log('[WebSocket] Received sensor data:', sensorMessage);
+              this.notifyMessageCallbacks(sensorMessage);
+            } 
+            // Handle generic message format (backward compatibility)
+            else if (rawMessage.type && rawMessage.data && rawMessage.timestamp) {
+              const genericMessage = rawMessage as WebSocketMessage;
+              console.log('[WebSocket] Received generic message:', genericMessage);
+              this.notifyMessageCallbacks(genericMessage);
+            }
+            // Fallback: treat as generic message
+            else {
+              console.warn('[WebSocket] Unknown message format:', rawMessage);
+              this.notifyMessageCallbacks(rawMessage);
+            }
           } catch (error) {
             console.error('[WebSocket] Failed to parse message:', error, event.data);
           }
@@ -184,6 +223,30 @@ class WebSocketService {
    */
   getReadyState(): number {
     return this.ws?.readyState ?? WebSocket.CLOSED;
+  }
+
+  /**
+   * Check if message is sensor data format
+   */
+  isSensorMessage(msg: AnyWebSocketMessage): msg is SensorWebSocketMessage {
+    return !!(
+      (msg as any).firmwareId &&
+      (msg as any).category &&
+      (msg as any).type &&
+      (msg as any).channel !== undefined &&
+      (msg as any).payload
+    );
+  }
+
+  /**
+   * Check if message is generic format
+   */
+  static isGenericMessage(msg: AnyWebSocketMessage): msg is WebSocketMessage {
+    return !!(
+      (msg as any).type &&
+      (msg as any).data &&
+      (msg as any).timestamp !== undefined
+    );
   }
 }
 

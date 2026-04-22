@@ -203,6 +203,25 @@ export function determineDeviceStatus(
   return 'offline';
 }
 
+/**
+ * Convert sensor WebSocket data to Module format
+ * Used to update modules with real-time sensor data
+ */
+export function convertSensorDataToModule(
+  sensorData: any,
+  moduleId: string,
+  deviceId: string,
+  existingModule?: Module
+): Partial<Module> {
+  return {
+    id: moduleId,
+    value: sensorData.value,
+    displayValue: sensorData.displayValue,
+    unit: sensorData.unit,
+    status: sensorData.isValid ? 'online' : 'offline',
+  };
+}
+
 export default {
   convertDTOToHome,
   convertDTOToRoom,
@@ -215,4 +234,5 @@ export default {
   computeRoomStats,
   parseDeviceState,
   determineDeviceStatus,
+  convertSensorDataToModule,
 };

@@ -5,11 +5,11 @@
 
 import { FC, useState, useEffect } from 'react';
 import { Plus, Search, X, AlertCircle } from 'lucide-react';
-import { useDeviceControl } from '../../hooks/useDeviceControl';
-import { useModuleControl } from '../../hooks/useModuleControl';
+import { useDeviceControl } from '../hooks/useDeviceControl';
+import { useModuleControl } from '../hooks/useModuleControl';
 import { DeviceListItem } from './DeviceListItem';
 import { ModuleControlCard } from './ModuleControlCard';
-import type { DeviceDTO, CreateDeviceRequest, AddModuleRequest } from '../../types/api';
+import type { DeviceDTO, CreateDeviceRequest, AddModuleRequest } from '../types/api';
 
 interface DeviceControlPanelProps {
   homeId: string;

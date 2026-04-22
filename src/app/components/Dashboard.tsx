@@ -3,9 +3,12 @@ import { Link, useNavigate } from "react-router";
 import { useApp } from "../contexts/AppContext";
 import { TimeDisplay } from "./TimeDisplay";
 import { EnvironmentStats } from "./ui/EnvironmentStats";
+import { SensorOverview } from "./SensorCards";
+import { useLatestSensorReadings } from "../hooks/useLatestSensorReadings";
 
 export function Dashboard() {
   const { devices, activities, rooms, isDarkMode, userProfile, websocketConnected, websocketStatus } = useApp();
+  const latestReadings = useLatestSensorReadings();
   const navigate = useNavigate();
   
   const currentHour = new Date().getHours();
@@ -113,6 +116,23 @@ export function Dashboard() {
           bgColor={isDarkMode ? "bg-green-900/30" : "bg-green-50"}
         />
       </div>
+
+      {/* Real-time Sensor Cards - Display latest WebSocket readings */}
+      {(latestReadings.temperature || latestReadings.humidity || latestReadings.light || latestReadings.motion) && (
+        <div className="space-y-3">
+          <h2 className={`text-lg font-semibold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+            <Thermometer className="w-5 h-5" />
+            Live Sensor Readings
+          </h2>
+          <SensorOverview
+            tempValue={latestReadings.temperature?.value}
+            humidityValue={latestReadings.humidity?.value}
+            lightValue={latestReadings.light?.value}
+            motionValue={latestReadings.motion?.value}
+            isDarkMode={isDarkMode}
+          />
+        </div>
+      )}
 
       {/* Homes Quick Link */}
       <div className={`rounded-xl shadow-sm border p-6 ${
