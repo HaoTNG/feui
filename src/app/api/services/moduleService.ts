@@ -6,6 +6,7 @@
 import type { ModuleDTO, AddModuleRequest, UpdateModuleNameRequest, SendModuleCommandRequest } from '../../types/api';
 import { apiRequest } from '../client';
 import API_ENDPOINTS from '../endpoints';
+import { MODULE_IDS, FAN_SPEEDS, BRIGHTNESS_LEVELS } from '../../config/moduleConstants';
 
 class ModuleService {
   /**
@@ -76,15 +77,15 @@ class ModuleService {
   /**
    * Send control command to module
    * @param moduleId - Module ID to control
-   * @param payload - Number payload (e.g., 1 for ON, 0 for OFF)
+   * @param action - Action value (e.g., 1 for ON, 0 for OFF)
    */
-  async sendCommand(moduleId: string, payload: number): Promise<void> {
+  async sendCommand(moduleId: string, action: number): Promise<void> {
     try {
       const endpoint = API_ENDPOINTS.MODULES.SEND_COMMAND(moduleId);
       console.log('[moduleService] Sending command to module:', moduleId);
       console.log('[moduleService] Command endpoint:', endpoint);
-      console.log('[moduleService] Command payload:', payload);
-      const commandPayload: SendModuleCommandRequest = { payload };
+      console.log('[moduleService] Command action:', action);
+      const commandPayload: SendModuleCommandRequest = { action };
       await apiRequest<void>('post', endpoint, commandPayload);
       console.log('[moduleService] Command sent successfully');
     } catch (error) {
@@ -97,17 +98,91 @@ class ModuleService {
    * Helper: Toggle module (send 1 for on, 0 for off)
    */
   async toggle(moduleId: string, on: boolean): Promise<void> {
-    const payload = on ? 1 : 0;
-    return this.sendCommand(moduleId, payload);
+    const action = on ? 1 : 0;
+    return this.sendCommand(moduleId, action);
   }
 
   /**
    * Helper: Send command with value
    * Useful for brightness, speed, color, etc.
-   * For now, simplified to send the value as payload
+   * For now, simplified to send the value as action
    */
   async sendWithValue(moduleId: string, value: number): Promise<void> {
     return this.sendCommand(moduleId, value);
+  }
+
+  // ============================================================
+  // DEVICE-SPECIFIC CONTROL METHODS (Using Hardcoded IDs)
+  // ============================================================
+
+  /**
+   * Control FAN device
+   */
+  async controlFan(action: number): Promise<void> {
+    return this.sendCommand(MODULE_IDS.FAN, action);
+  }
+
+  async toggleFan(on: boolean): Promise<void> {
+    return this.toggle(MODULE_IDS.FAN, on);
+  }
+
+  async setFanSpeed(speed: number): Promise<void> {
+    return this.sendCommand(MODULE_IDS.FAN, speed);
+  }
+
+  /**
+   * Control LED RGB device
+   */
+  async controlLED(action: number): Promise<void> {
+    return this.sendCommand(MODULE_IDS.LED_RGB, action);
+  }
+
+  async toggleLED(on: boolean): Promise<void> {
+    return this.toggle(MODULE_IDS.LED_RGB, on);
+  }
+
+  async setLEDBrightness(brightness: number): Promise<void> {
+    const value = Math.max(0, Math.min(100, brightness));
+    return this.sendCommand(MODULE_IDS.LED_RGB, value);
+  }
+
+  /**
+   * Control Light Sensor
+   */
+  async toggleLight(on: boolean): Promise<void> {
+    return this.toggle(MODULE_IDS.LIGHT_SENSOR, on);
+  }
+
+  /**
+   * Control Motion Sensor (read-only)
+   */
+  async getMotionStatus(): Promise<ModuleDTO> {
+    return this.getModule(MODULE_IDS.MOTION_SENSOR);
+  }
+
+  /**
+   * Control Temperature Sensor (read-only)
+   */
+  async getTemperature(): Promise<ModuleDTO> {
+    return this.getModule(MODULE_IDS.TEMPERATURE_SENSOR);
+  }
+
+  /**
+   * Control Humidity Sensor (read-only)
+   */
+  async getHumidity(): Promise<ModuleDTO> {
+    return this.getModule(MODULE_IDS.HUMIDITY_SENSOR);
+  }
+
+  /**
+   * Control LCD Display
+   */
+  async controlLCD(action: number): Promise<void> {
+    return this.sendCommand(MODULE_IDS.LCD_DISPLAY, action);
+  }
+
+  async toggleLCD(on: boolean): Promise<void> {
+    return this.toggle(MODULE_IDS.LCD_DISPLAY, on);
   }
 }
 

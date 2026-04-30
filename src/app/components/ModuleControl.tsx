@@ -16,6 +16,37 @@ interface ModuleControlProps {
 }
 
 /**
+ * Helper: Get control function based on module type
+ */
+function getControlFunction(module: ModuleDTO): { toggle: (on: boolean) => Promise<void>; setSpeed?: (speed: number) => Promise<void>; setBrightness?: (brightness: number) => Promise<void> } {
+  switch (module.type) {
+    case 'FAN':
+      return {
+        toggle: (on: boolean) => moduleService.toggleFan(on),
+        setSpeed: (speed: number) => moduleService.setFanSpeed(speed),
+      };
+    case 'LED':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLED(on),
+        setBrightness: (brightness: number) => moduleService.setLEDBrightness(brightness),
+      };
+    case 'LIGHT':
+    case 'SWITCH':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLight(on),
+      };
+    case 'LCD':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLCD(on),
+      };
+    default:
+      return {
+        toggle: (on: boolean) => moduleService.toggle(module.id, on),
+      };
+  }
+}
+
+/**
  * Get appropriate icon for module type
  */
 function getModuleIcon(type: ModuleType) {
@@ -55,7 +86,8 @@ const LightControl: FC<{ module: ModuleDTO; isDarkMode: boolean; onStateChange?:
     setLoading(true);
     try {
       const newState = isOn ? 0 : 1;
-      await moduleService.toggle(module.id, newState === 1);
+      // Use light sensor ID instead of module.id
+      await moduleService.toggleLight(newState === 1);
       setIsOn(newState === 1);
       onStateChange?.(newState.toString());
       toast.success(newState === 1 ? 'Light turned ON' : 'Light turned OFF');
@@ -135,12 +167,13 @@ const FanControl: FC<{ module: ModuleDTO; isDarkMode: boolean; onStateChange?: (
   const [isOn, setIsOn] = useState(module.state === '1');
   const [speed, setSpeed] = useState(1);
   const [loading, setLoading] = useState(false);
+  const controls = getControlFunction(module);
 
   const handleToggle = async () => {
     setLoading(true);
     try {
       const newState = isOn ? 0 : 1;
-      await moduleService.toggle(module.id, newState === 1);
+      await controls.toggle(newState === 1);
       setIsOn(newState === 1);
       onStateChange?.(newState.toString());
       toast.success(newState === 1 ? 'Fan turned ON' : 'Fan turned OFF');
@@ -156,10 +189,12 @@ const FanControl: FC<{ module: ModuleDTO; isDarkMode: boolean; onStateChange?: (
     setSpeed(newSpeed);
     setLoading(true);
     try {
-      await moduleService.sendWithValue(module.id, 1, 'speed', newSpeed);
-      onStateChange?.('1');
-      const speedLabels = { 1: 'Low', 2: 'Medium', 3: 'High' };
-      toast.success(`Fan speed set to ${speedLabels[newSpeed as keyof typeof speedLabels] || `Level ${newSpeed}`}`);
+      if (controls.setSpeed) {
+        await controls.setSpeed(newSpeed);
+        onStateChange?.('1');
+        const speedLabels = { 1: 'Low', 2: 'Medium', 3: 'High' };
+        toast.success(`Fan speed set to ${speedLabels[newSpeed as keyof typeof speedLabels] || `Level ${newSpeed}`}`);
+      }
     } catch (error) {
       toast.error('Failed to set fan speed');
       console.error('Fan speed error:', error);
@@ -224,12 +259,13 @@ const SwitchControl: FC<{ module: ModuleDTO; isDarkMode: boolean; onStateChange?
 }) => {
   const [isOn, setIsOn] = useState(module.state === '1');
   const [loading, setLoading] = useState(false);
+  const controls = getControlFunction(module);
 
   const handleToggle = async () => {
     setLoading(true);
     try {
       const newState = isOn ? 0 : 1;
-      await moduleService.toggle(module.id, newState === 1);
+      await controls.toggle(newState === 1);
       setIsOn(newState === 1);
       onStateChange?.(newState.toString());
       toast.success(newState === 1 ? `${module.name} turned ON` : `${module.name} turned OFF`);

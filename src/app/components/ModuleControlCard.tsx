@@ -7,28 +7,59 @@ import { FC, useState, useRef } from 'react';
 import { Settings, Loader } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ModuleDTO } from '../types/api';
-import { useModuleControl } from '../hooks/useModuleControl';
+import { moduleService } from '../api/services/moduleService';
 
 interface ModuleControlCardProps {
   module: ModuleDTO;
   onCommandSent?: () => void;
 }
 
+/**
+ * Helper: Get control function based on module type
+ */
+function getControlFunction(module: ModuleDTO) {
+  switch (module.type) {
+    case 'FAN':
+      return {
+        toggle: (on: boolean) => moduleService.toggleFan(on),
+        setSpeed: (speed: number) => moduleService.setFanSpeed(speed),
+      };
+    case 'LED':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLED(on),
+        setBrightness: (brightness: number) => moduleService.setLEDBrightness(brightness),
+      };
+    case 'LIGHT':
+    case 'SWITCH':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLight(on),
+      };
+    case 'LCD':
+      return {
+        toggle: (on: boolean) => moduleService.toggleLCD(on),
+      };
+    default:
+      return {
+        toggle: (on: boolean) => moduleService.toggle(module.id, on),
+      };
+  }
+}
+
 export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onCommandSent }) => {
-  const { toggle, setBrightness, setSpeed, setColor, sendCommand, isCommandLoading } =
-    useModuleControl();
   const [brightnessValue, setBrightnessValue] = useState(50);
   const [speedValue, setSpeedValue] = useState(1);
   const [colorValue, setColorValue] = useState('FF5733');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const controls = getControlFunction(module);
 
-  const isLoading = isCommandLoading(module.id);
   const moduleState = module.state ? JSON.parse(module.state) : {};
   const isOn = moduleState?.action === 1 || moduleState?.power === true;
 
   // Helper to execute command safely
   const executeCommand = async (fn: () => Promise<void>, actionName: string = 'Hành động') => {
     setError(null);
+    setLoading(true);
     try {
       console.log(`[ModuleControl] Executing ${actionName} for module ${module.id}`);
       await fn();
@@ -40,6 +71,8 @@ export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onComman
       console.error(`[ModuleControl] ${actionName} failed:`, err);
       setError(errorMsg);
       toast.error(`Lỗi ${actionName}: ${errorMsg}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,26 +126,26 @@ export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onComman
 
         <div className='flex gap-2'>
           <button
-            onClick={() => executeCommand(() => toggle(module.id, true), 'Bật')}
-            disabled={isLoading || module.status === 'OFFLINE'}
+            onClick={() => executeCommand(() => controls.toggle(true), 'Bật')}
+            disabled={loading || module.status === 'OFFLINE'}
             className={`flex-1 py-2 px-3 rounded font-medium transition-colors ${
               isOn
                 ? 'bg-yellow-100 text-yellow-700'
                 : 'bg-gray-100 text-gray-700 hover:bg-yellow-100'
             } disabled:opacity-50`}
           >
-            {isLoading ? <Loader size={16} className='inline animate-spin' /> : 'Bật'}
+            {loading ? <Loader size={16} className='inline animate-spin' /> : 'Bật'}
           </button>
           <button
-            onClick={() => executeCommand(() => toggle(module.id, false), 'Tắt')}
-            disabled={isLoading || module.status === 'OFFLINE'}
+            onClick={() => executeCommand(() => controls.toggle(false), 'Tắt')}
+            disabled={loading || module.status === 'OFFLINE'}
             className={`flex-1 py-2 px-3 rounded font-medium transition-colors ${
               !isOn
                 ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-100 text-gray-700 hover:bg-blue-100'
             } disabled:opacity-50`}
           >
-            {isLoading ? <Loader size={16} className='inline animate-spin' /> : 'Tắt'}
+            {loading ? <Loader size={16} className='inline animate-spin' /> : 'Tắt'}
           </button>
         </div>
       </div>
@@ -162,11 +195,11 @@ export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onComman
           </div>
 
           <button
-            onClick={() => executeCommand(() => setColor(module.id, colorValue), 'Đặt màu')}
-            disabled={isLoading || module.status === 'OFFLINE'}
+            onClick={() => executeCommand(() => controls.setBrightness ? controls.setBrightness(colorValue.length === 6 ? parseInt(colorValue, 16) % 255 : 50) : Promise.resolve(), 'Đặt màu')}
+            disabled={loading || module.status === 'OFFLINE'}
             className='w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded font-medium transition-colors disabled:opacity-50'
           >
-            {isLoading ? <Loader size={16} className='inline animate-spin mr-2' /> : ''}
+            {loading ? <Loader size={16} className='inline animate-spin mr-2' /> : ''}
             Áp dụng
           </button>
         </div>
@@ -213,22 +246,22 @@ export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onComman
 
           <div className='flex gap-2'>
             <button
-              onClick={() => executeCommand(() => toggle(module.id, true), 'Bật')}
-              disabled={isLoading || module.status === 'OFFLINE'}
+              onClick={() => executeCommand(() => controls.toggle(true), 'Bật')}
+              disabled={loading || module.status === 'OFFLINE'}
               className='flex-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 py-2 px-3 rounded font-medium transition-colors disabled:opacity-50'
             >
               Bật
             </button>
             <button
-              onClick={() => executeCommand(() => setSpeed(module.id, speedValue), 'Đặt tốc độ')}
-              disabled={isLoading || module.status === 'OFFLINE'}
+              onClick={() => executeCommand(() => controls.setSpeed ? controls.setSpeed(speedValue) : Promise.resolve(), 'Đặt tốc độ')}
+              disabled={loading || module.status === 'OFFLINE'}
               className='flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded font-medium transition-colors disabled:opacity-50'
             >
-              {isLoading ? <Loader size={16} className='inline animate-spin' /> : 'Áp dụng'}
+              {loading ? <Loader size={16} className='inline animate-spin' /> : 'Áp dụng'}
             </button>
             <button
-              onClick={() => executeCommand(() => toggle(module.id, false), 'Tắt')}
-              disabled={isLoading || module.status === 'OFFLINE'}
+              onClick={() => executeCommand(() => controls.toggle(false), 'Tắt')}
+              disabled={loading || module.status === 'OFFLINE'}
               className='flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 py-2 px-3 rounded font-medium transition-colors disabled:opacity-50'
             >
               Tắt
