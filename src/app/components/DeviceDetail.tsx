@@ -46,33 +46,6 @@ const MOCK_DEVICE_MODULES: ModuleDTO[] = [
     status: "ONLINE",
     createdAt: new Date().toISOString(),
   },
-  {
-    id: MODULE_IDS.TEMPERATURE_SENSOR,
-    name: "DHT20-TEMPERATURE",
-    type: "TEMPERATURE",
-    state: "0",
-    deviceChannelId: "8ccf360c-0ebb-46f0-9b81-0b15390c4740",
-    status: "ONLINE",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: MODULE_IDS.HUMIDITY_SENSOR,
-    name: "DHT-20 HUMIDITY",
-    type: "HUMIDITY",
-    state: "0",
-    deviceChannelId: "8ccf360c-0ebb-46f0-9b81-0b15390c4740",
-    status: "ONLINE",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: MODULE_IDS.MOTION_SENSOR,
-    name: "Cảm biến chuyển động",
-    type: "MOTION",
-    state: "0",
-    deviceChannelId: "2b11a717-92a3-4dad-a857-11f1d8e9d3c6",
-    status: "ONLINE",
-    createdAt: new Date().toISOString(),
-  },
 ];
 
 export function DeviceDetail() {
