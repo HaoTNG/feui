@@ -7,25 +7,13 @@ export function DemoCredentials() {
       </h4>
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between p-2 rounded bg-white/50">
-          <span className="font-mono">owner@demo.com</span>
+          <span className="font-mono">owner@test.com</span>
           <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
             Owner
           </span>
         </div>
-        <div className="flex items-center justify-between p-2 rounded bg-white/50">
-          <span className="font-mono">family@demo.com</span>
-          <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-            Family
-          </span>
-        </div>
-        <div className="flex items-center justify-between p-2 rounded bg-white/50">
-          <span className="font-mono">guest@demo.com</span>
-          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-            Guest
-          </span>
-        </div>
         <p className="text-xs mt-2 text-blue-600">
-          Any password works (min 6 characters)
+          Password: password123
         </p>
       </div>
     </div>

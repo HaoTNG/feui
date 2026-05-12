@@ -60,7 +60,9 @@ class WebSocketService {
     return new Promise((resolve, reject) => {
       try {
         this.isIntentionallyClosed = false;
-        this.ws = new WebSocket(this.url);
+        const token = localStorage.getItem('authToken');
+        const wsUrl = token ? `${this.url}?token=${token}` : this.url;
+        this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
           console.log('[WebSocket] Connected to server');

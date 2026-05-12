@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, useRef, ReactNode, useEffect } from "react";
 import { 
   homeService, 
   roomService, 
@@ -429,6 +429,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [websocketConnected, setWebsocketConnected] = useState(false);
   const [websocketStatus, setWebsocketStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('disconnected');
   const [websocketData, setWebsocketData] = useState<WebSocketData[]>([]);
+  const lastMotionState = useRef<boolean | null>(null);
 
   const isDarkMode = theme === "dark";
   
@@ -702,8 +703,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // For now, we'll update devices that have matching sensors
         console.log('[AppContext] Parsed sensor data:', parsed);
 
-        // Update activity log if important
-        if (parsed.type === 'MOTION' && parsed.value === true) {
+        // Log activity only on motion state change (0→1)
+        if (parsed.type === 'MOTION' && parsed.value === true && lastMotionState.current !== true) {
           addActivity({
             type: 'system',
             action: 'Motion Detected',
@@ -711,6 +712,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             success: true,
             triggeredBy: 'system',
           });
+        }
+        if (parsed.type === 'MOTION') {
+          lastMotionState.current = parsed.value as boolean;
         }
       }
       // Handle generic message format (backward compatibility)
