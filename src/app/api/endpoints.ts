@@ -81,6 +81,25 @@ export const API_ENDPOINTS = {
     // Module Control
     SEND_COMMAND: (moduleId: string) => `/modules/${moduleId}/commands`,
   },
+
+  // ============================================================
+  // AUTOMATIONS
+  // ============================================================
+  AUTOMATIONS: {
+    LIST: '/automations',
+    CREATE: '/automations',
+    UPDATE: (automationId: string) => `/automations/${automationId}`,
+    DELETE: (automationId: string) => `/automations/${automationId}`,
+    // Automation Actions
+    LIST_ACTIONS: (automationId: string) => `/automations/${automationId}/actions`,
+    ADD_ACTION: (automationId: string) => `/automations/${automationId}/actions`,
+    UPDATE_ACTION: (automationId: string, actionId: string) => `/automations/${automationId}/actions/${actionId}`,
+    // Command Templates
+    LIST_TEMPLATES: '/automations/templates',
+    CREATE_TEMPLATE: '/automations/templates',
+    UPDATE_TEMPLATE: (templateId: string) => `/automations/templates/${templateId}`,
+    DELETE_TEMPLATE: (templateId: string) => `/automations/templates/${templateId}`,
+  },
 } as const;
 
 export default API_ENDPOINTS;
