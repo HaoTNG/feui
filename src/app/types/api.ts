@@ -215,7 +215,7 @@ export interface UpdateModuleNameRequest {
 }
 
 export interface SendModuleCommandRequest {
-  payload: number; // Changed from string to number
+  action: number; // Action to send to the module (1 for ON, 0 for OFF, etc.)
 }
 
 // ============================================================

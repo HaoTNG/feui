@@ -42,9 +42,6 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Device Management", path: "/device-management", icon: Zap, roles: ["owner"] },
-  { name: "Hub Management", path: "/hub-management", icon: Server, roles: ["owner"] },
-  { name: "Modules", path: "/modules", icon: Cpu, roles: ["owner"] },
-  { name: "Room Management", path: "/room-management", icon: Home, roles: ["owner"] },
   { name: "User Management", path: "/user-management", icon: Users, roles: ["owner"] },
 ];
 
