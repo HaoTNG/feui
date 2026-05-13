@@ -562,7 +562,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         //   const { devices: mockDevicesData } = initializeMockData();
         //   setDevices(mockDevicesData);
         // } else {
-        setDevices(devicesData || []);
+        setDevices((devicesData || []).map(d => ({
+          ...d,
+          status: (d.status?.toLowerCase() || 'offline') as 'online' | 'offline',
+        })));
         // }
         setDevicesError(null);
       } catch (error) {
@@ -735,7 +738,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               device.id === genericMsg.data.deviceId
                 ? {
                     ...device,
-                    status: genericMsg.data.status || device.status,
+                    status: (genericMsg.data.status?.toLowerCase() || device.status) as 'online' | 'offline',
                     ...(genericMsg.data.modules && { modules: genericMsg.data.modules })
                   }
                 : device
@@ -752,7 +755,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                       module.id === genericMsg.data.moduleId
                         ? {
                             ...module,
-                            status: genericMsg.data.status || module.status,
+                            status: (genericMsg.data.status?.toLowerCase() || module.status) as 'online' | 'offline',
                             value: genericMsg.data.value ?? module.value,
                             displayValue: genericMsg.data.displayValue ?? module.displayValue,
                           }
