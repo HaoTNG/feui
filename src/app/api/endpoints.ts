@@ -80,6 +80,11 @@ export const API_ENDPOINTS = {
     DELETE: (moduleId: string) => `/modules/${moduleId}`,
     // Module Control
     SEND_COMMAND: (moduleId: string) => `/modules/${moduleId}/commands`,
+    // Alert Rules
+    ALERTS_LIST: (moduleId: string) => `/modules/${moduleId}/alerts`,
+    ALERTS_CREATE: (moduleId: string) => `/modules/${moduleId}/alerts`,
+    ALERTS_UPDATE: (moduleId: string, ruleId: string) => `/modules/${moduleId}/alerts/${ruleId}`,
+    ALERTS_DELETE: (moduleId: string, ruleId: string) => `/modules/${moduleId}/alerts/${ruleId}`,
   },
 
   // ============================================================

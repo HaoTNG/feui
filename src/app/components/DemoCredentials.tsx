@@ -7,7 +7,7 @@ export function DemoCredentials() {
       </h4>
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between p-2 rounded bg-white/50">
-          <span className="font-mono">owner@test.com</span>
+          <span className="font-mono">thanh.nguyen422005@gmail.com</span>
           <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
             Owner
           </span>

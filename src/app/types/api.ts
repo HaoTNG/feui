@@ -300,6 +300,37 @@ export interface CommandTemplateDTO {
 }
 
 // ============================================================
+// 9. ALERT RULE MANAGEMENT
+// ============================================================
+
+export type AlertOperator = TriggerOperator;
+
+export interface AlertRuleDTO {
+  id: string;
+  moduleId: string;
+  operator: AlertOperator;
+  value: string;
+  message: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAlertRuleRequest {
+  value: string;
+  message: string;
+  enabled: boolean;
+  operator: AlertOperator;
+}
+
+export interface UpdateAlertRuleRequest {
+  value?: string;
+  message?: string;
+  enabled?: boolean;
+  operator?: AlertOperator;
+}
+
+// ============================================================
 // MAPPED/TRANSFORMED TYPES (For Frontend Use)
 // ============================================================
 
