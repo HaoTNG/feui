@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, ChevronRight, ChevronLeft, Plus, Trash2, GitBranch } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Plus, Trash2, GitBranch, Zap, Clock, Timer } from "lucide-react";
 import { useApp } from "../contexts/AppContext";
 import type {
   TriggerTreeNode,
@@ -78,6 +78,9 @@ export function CreateAutomationModal({
   const [description, setDescription] = useState("");
   const [roomId, setRoomId] = useState("");
   const [enabled, setEnabled] = useState(true);
+  const [scheduleType, setScheduleType] = useState<"NONE" | "CRON" | "INTERVAL">("NONE");
+  const [cronExpression, setCronExpression] = useState("");
+  const [intervalSeconds, setIntervalSeconds] = useState<number | "">("");
 
   // Step 2: Trigger Tree
   const [triggerTree, setTriggerTree] = useState<TreeNodeWithId>(createDefaultGroup("OR"));
@@ -105,12 +108,18 @@ export function CreateAutomationModal({
         setDescription(editAutomation.description);
         setRoomId(editAutomation.roomId);
         setEnabled(editAutomation.enabled);
+        setScheduleType(editAutomation.scheduleType || "NONE");
+        setCronExpression(editAutomation.cron || "");
+        setIntervalSeconds(editAutomation.interval ?? "");
         setTriggerTree(addIdsToTree(editAutomation.triggerTree));
       } else {
         setName("");
         setDescription("");
         setRoomId("");
         setEnabled(true);
+        setScheduleType("NONE");
+        setCronExpression("");
+        setIntervalSeconds("");
         setTriggerTree(createDefaultGroup("OR"));
       }
       setStep(1);
@@ -211,6 +220,9 @@ export function CreateAutomationModal({
         roomId,
         name,
         description,
+        scheduleType,
+        cron: scheduleType === "CRON" ? cronExpression : undefined,
+        interval: scheduleType === "INTERVAL" && intervalSeconds !== "" ? Number(intervalSeconds) : undefined,
         triggerTree: removeIdsFromTree(triggerTree),
         enabled,
       };
@@ -367,6 +379,208 @@ export function CreateAutomationModal({
                   {enabled ? "Enabled" : "Disabled"}
                 </span>
               </div>
+
+              {/* Schedule Type - Card Selection */}
+              <div>
+                <label className={`block text-sm font-medium mb-3 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  Khi nào chạy automation?
+                </label>
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Event-driven Option */}
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType("NONE")}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      scheduleType === "NONE"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : isDarkMode
+                        ? "border-gray-600 bg-gray-700 hover:border-gray-500"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        scheduleType === "NONE" 
+                          ? "bg-blue-100 text-blue-600 dark:bg-blue-800 dark:text-blue-300" 
+                          : isDarkMode ? "bg-gray-600 text-gray-300" : "bg-gray-100 text-gray-500"
+                      }`}>
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-medium ${
+                          scheduleType === "NONE" 
+                            ? "text-blue-700 dark:text-blue-300" 
+                            : isDarkMode ? "text-white" : "text-gray-900"
+                        }`}>
+                          Tự động theo điều kiện
+                        </div>
+                        <div className={`text-sm mt-0.5 ${
+                          scheduleType === "NONE" 
+                            ? "text-blue-600 dark:text-blue-400" 
+                            : isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}>
+                          Chạy ngay khi cảm biến thỏa điều kiện (khuyến nghị)
+                        </div>
+                      </div>
+                      {scheduleType === "NONE" && (
+                        <div className="text-blue-500">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Cron Schedule Option */}
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType("CRON")}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      scheduleType === "CRON"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : isDarkMode
+                        ? "border-gray-600 bg-gray-700 hover:border-gray-500"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        scheduleType === "CRON" 
+                          ? "bg-blue-100 text-blue-600 dark:bg-blue-800 dark:text-blue-300" 
+                          : isDarkMode ? "bg-gray-600 text-gray-300" : "bg-gray-100 text-gray-500"
+                      }`}>
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-medium ${
+                          scheduleType === "CRON" 
+                            ? "text-blue-700 dark:text-blue-300" 
+                            : isDarkMode ? "text-white" : "text-gray-900"
+                        }`}>
+                          Theo lịch cố định
+                        </div>
+                        <div className={`text-sm mt-0.5 ${
+                          scheduleType === "CRON" 
+                            ? "text-blue-600 dark:text-blue-400" 
+                            : isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}>
+                          Ví dụ: Mỗi ngày lúc 6h sáng, mỗi thứ 2 lúc 8h...
+                        </div>
+                      </div>
+                      {scheduleType === "CRON" && (
+                        <div className="text-blue-500">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Interval Option */}
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType("INTERVAL")}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      scheduleType === "INTERVAL"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : isDarkMode
+                        ? "border-gray-600 bg-gray-700 hover:border-gray-500"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        scheduleType === "INTERVAL" 
+                          ? "bg-blue-100 text-blue-600 dark:bg-blue-800 dark:text-blue-300" 
+                          : isDarkMode ? "bg-gray-600 text-gray-300" : "bg-gray-100 text-gray-500"
+                      }`}>
+                        <Timer className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-medium ${
+                          scheduleType === "INTERVAL" 
+                            ? "text-blue-700 dark:text-blue-300" 
+                            : isDarkMode ? "text-white" : "text-gray-900"
+                        }`}>
+                          Lặp lại định kỳ
+                        </div>
+                        <div className={`text-sm mt-0.5 ${
+                          scheduleType === "INTERVAL" 
+                            ? "text-blue-600 dark:text-blue-400" 
+                            : isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}>
+                          Ví dụ: Mỗi 30 giây, mỗi 5 phút...
+                        </div>
+                      </div>
+                      {scheduleType === "INTERVAL" && (
+                        <div className="text-blue-500">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Cron Expression (when CRON selected) */}
+              {scheduleType === "CRON" && (
+                <div className={`p-4 rounded-xl border ${isDarkMode ? "border-gray-600 bg-gray-700/50" : "border-blue-100 bg-blue-50/50"}`}>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Biểu thức Cron
+                  </label>
+                  <input
+                    type="text"
+                    value={cronExpression}
+                    onChange={(e) => setCronExpression(e.target.value)}
+                    placeholder="0 0 6 * * ?"
+                    className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDarkMode
+                        ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
+                  />
+                  <div className={`mt-3 space-y-1 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    <p className="font-medium">Ví dụ:</p>
+                    <p><code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600">0 0 6 * * ?</code> = Mỗi ngày lúc 6:00 sáng</p>
+                    <p><code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600">0 0 */2 * * ?</code> = Mỗi 2 giờ</p>
+                    <p><code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600">0 0 8 * * MON</code> = Thứ Hai lúc 8:00</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Interval Seconds (when INTERVAL selected) */}
+              {scheduleType === "INTERVAL" && (
+                <div className={`p-4 rounded-xl border ${isDarkMode ? "border-gray-600 bg-gray-700/50" : "border-blue-100 bg-blue-50/50"}`}>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Chạy mỗi bao nhiêu giây?
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="1"
+                      value={intervalSeconds}
+                      onChange={(e) => setIntervalSeconds(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="60"
+                      className={`w-32 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode
+                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                          : "bg-white border-gray-300 text-gray-900"
+                      }`}
+                    />
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-600"}>giây</span>
+                  </div>
+                  <div className={`mt-3 space-y-1 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    <p className="font-medium">Gợi ý:</p>
+                    <p>30 giây = kiểm tra thường xuyên</p>
+                    <p>300 giây (5 phút) = kiểm tra vừa phải</p>
+                    <p>3600 giây (1 giờ) = kiểm tra ít</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -460,6 +674,32 @@ export function CreateAutomationModal({
                       {enabled ? "Enabled" : "Disabled"}
                     </span>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      Lịch chạy:
+                    </span>
+                    <span className={`inline-flex items-center gap-1.5 ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+                      {scheduleType === "NONE" && (
+                        <>
+                          <Zap className="w-4 h-4 text-blue-500" />
+                          Tự động theo điều kiện
+                        </>
+                      )}
+                      {scheduleType === "CRON" && (
+                        <>
+                          <Clock className="w-4 h-4 text-blue-500" />
+                          {cronExpression || "(chưa đặt)"}
+                        </>
+                      )}
+                      {scheduleType === "INTERVAL" && (
+                        <>
+                          <Timer className="w-4 h-4 text-blue-500" />
+                          Mỗi {intervalSeconds || "?"} giây
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
@@ -490,6 +730,9 @@ export function CreateAutomationModal({
                         roomId,
                         name,
                         description,
+                        scheduleType,
+                        cron: scheduleType === "CRON" ? cronExpression : undefined,
+                        interval: scheduleType === "INTERVAL" && intervalSeconds !== "" ? Number(intervalSeconds) : undefined,
                         triggerTree: removeIdsFromTree(triggerTree),
                         enabled,
                       },

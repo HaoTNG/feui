@@ -565,6 +565,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDevices((devicesData || []).map(d => ({
           ...d,
           status: (d.status?.toLowerCase() || 'offline') as 'online' | 'offline',
+          modules: ((d as any).modules || []).map((m: any) => ({
+            ...m,
+            deviceId: d.id,
+            status: (m.status?.toLowerCase() || 'offline') as 'online' | 'offline',
+          })),
         })));
         // }
         setDevicesError(null);

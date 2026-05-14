@@ -8,7 +8,7 @@ import { ResetPassword } from "./components/ResetPassword";
 import { Dashboard } from "./components/Dashboard";
 import { DeviceControl } from "./components/DeviceControl";
 import { DeviceDetail } from "./components/DeviceDetail";
-import { ActivityLog } from "./components/ActivityLog";
+import { ModuleDetail } from "./components/ModuleDetail";
 import { SmartDeviceManagement } from "./components/SmartDeviceManagement";
 import { HubManagement } from "./components/HubManagement";
 import { HubDetail } from "./components/HubDetail";
@@ -43,7 +43,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Dashboard },
       { path: "devices/:deviceId", Component: DeviceDetail },
       { path: "devices", Component: DeviceControl },
-      { path: "history", Component: ActivityLog },
+      { path: "modules/:moduleId", Component: ModuleDetail },
       { path: "device-management", Component: SmartDeviceManagement },
       { path: "hub-management", Component: HubManagement },
       { path: "hub-management/:hubId", Component: HubDetail },
