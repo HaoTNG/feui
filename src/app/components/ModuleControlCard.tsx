@@ -8,6 +8,7 @@ import { Settings, Loader } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ModuleDTO } from '../types/api';
 import { moduleService } from '../api/services/moduleService';
+import { AlertRuleManagement } from './AlertRuleManagement';
 
 interface ModuleControlCardProps {
   module: ModuleDTO;
@@ -80,24 +81,27 @@ export const ModuleControlCard: FC<ModuleControlCardProps> = ({ module, onComman
   // RENDER BASED ON MODULE TYPE
   // ============================================================
 
-  if (module.type === 'TEMPERATURE' || module.type === 'HUMIDITY' || module.type === 'MOTION') {
-    // Sensor modules - display only
+  if (module.type === 'TEMPERATURE' || module.type === 'HUMIDITY' || module.type === 'MOTION' || module.type === 'LIGHT_SENSOR') {
+    // Sensor modules - display + alert rules
     return (
-      <div className='bg-white border border-gray-200 rounded-lg p-4'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <h3 className='font-semibold text-gray-900'>{module.name}</h3>
-            <p className='text-sm text-gray-500 mt-1'>{module.type}</p>
-          </div>
-          <div className='text-right'>
-            <p className='text-2xl font-bold text-blue-600'>{module.state}</p>
-            <span
-              className={`text-xs font-medium ${module.status === 'ONLINE' ? 'text-green-500' : 'text-red-500'}`}
-            >
-              {module.status === 'ONLINE' ? 'Trực tuyến' : 'Ngoài tuyến'}
-            </span>
+      <div>
+        <div className='bg-white border border-gray-200 rounded-lg p-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h3 className='font-semibold text-gray-900'>{module.name}</h3>
+              <p className='text-sm text-gray-500 mt-1'>{module.type}</p>
+            </div>
+            <div className='text-right'>
+              <p className='text-2xl font-bold text-blue-600'>{module.state}</p>
+              <span
+                className={`text-xs font-medium ${module.status === 'ONLINE' ? 'text-green-500' : 'text-red-500'}`}
+              >
+                {module.status === 'ONLINE' ? 'Trực tuyến' : 'Ngoài tuyến'}
+              </span>
+            </div>
           </div>
         </div>
+        <AlertRuleManagement module={module} onRulesChanged={onCommandSent} />
       </div>
     );
   }

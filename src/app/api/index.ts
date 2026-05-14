@@ -20,6 +20,7 @@ export {
   memberService,
   websocketService,
   mockWebSocketService,
+  automationService,
 } from './services';
 
 // Types

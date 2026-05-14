@@ -55,14 +55,16 @@ export function Login() {
     setIsLoading(true);
     setError("");
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const success = login(formData.email, formData.password, formData.rememberMe);
-    
-    if (success) {
-      navigate("/");
-    } else {
+    try {
+      const success = await login(formData.email, formData.password, formData.rememberMe);
+      
+      if (success) {
+        navigate("/");
+      } else {
+        setError("Invalid email or password");
+        setIsLoading(false);
+      }
+    } catch (err) {
       setError("Invalid email or password");
       setIsLoading(false);
     }

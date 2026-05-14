@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Radio,
-  History,
   Home,
   Settings,
   Bell,
@@ -33,7 +32,6 @@ import { HomeSelector } from "./ui/HomeSelector";
 const navigation = [
   { name: "Dashboard", path: "/", icon: LayoutDashboard, roles: ["owner", "family"] },
   { name: "Control", path: "/devices", icon: Radio, roles: ["owner", "family"] },
-  { name: "History", path: "/history", icon: History, roles: ["owner", "family"] },
   { name: "Homes", path: "/homes", icon: Building2, roles: ["owner"] },
   { name: "Automation", path: "/automation", icon: Bot, roles: ["owner", "family"] },
   { name: "Help", path: "/help", icon: HelpCircle, roles: ["owner", "family", "guest"] },

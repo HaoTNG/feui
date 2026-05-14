@@ -67,7 +67,7 @@ export function convertDTOToDevice(dto: DeviceDTO): Device {
     updatedAt: new Date(dto.updatedAt),
     modules: [],
     state: {},
-    status: 'offline', // Will be updated when fetching device state
+    status: (dto.status?.toLowerCase() as 'online' | 'offline') || 'offline',
   };
 }
 
@@ -82,9 +82,10 @@ export function convertDTOToModule(dto: ModuleDTO): Module {
     deviceChannelId: dto.deviceChannelId,
     deviceId: dto.deviceId,
     createdAt: new Date(dto.createdAt),
-    value: undefined, // Will be populated from device state
+    value: undefined,
     displayValue: undefined,
     unit: getUnitForModuleType(dto.type),
+    status: (dto.status?.toLowerCase() as 'online' | 'offline') || 'offline',
   };
 }
 

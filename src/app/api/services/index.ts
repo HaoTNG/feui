@@ -12,3 +12,5 @@ export { moduleService } from './moduleService';
 export { memberService } from './memberService';
 export { websocketService } from './websocketService';
 export { mockWebSocketService } from './mockWebSocketService';
+export { automationService } from './automationService';
+export { alertRuleService } from './alertRuleService';

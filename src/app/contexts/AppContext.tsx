@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, useRef, ReactNode, useEffect } from "react";
 import { 
   homeService, 
   roomService, 
@@ -429,6 +429,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [websocketConnected, setWebsocketConnected] = useState(false);
   const [websocketStatus, setWebsocketStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('disconnected');
   const [websocketData, setWebsocketData] = useState<WebSocketData[]>([]);
+  const lastMotionState = useRef<boolean | null>(null);
 
   const isDarkMode = theme === "dark";
   
@@ -561,7 +562,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         //   const { devices: mockDevicesData } = initializeMockData();
         //   setDevices(mockDevicesData);
         // } else {
-        setDevices(devicesData || []);
+        setDevices((devicesData || []).map(d => ({
+          ...d,
+          status: (d.status?.toLowerCase() || 'offline') as 'online' | 'offline',
+          modules: ((d as any).modules || []).map((m: any) => ({
+            ...m,
+            deviceId: d.id,
+            status: (m.status?.toLowerCase() || 'offline') as 'online' | 'offline',
+          })),
+        })));
         // }
         setDevicesError(null);
       } catch (error) {
@@ -702,8 +711,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // For now, we'll update devices that have matching sensors
         console.log('[AppContext] Parsed sensor data:', parsed);
 
-        // Update activity log if important
-        if (parsed.type === 'MOTION' && parsed.value === true) {
+        // Log activity only on motion state change (0→1)
+        if (parsed.type === 'MOTION' && parsed.value === true && lastMotionState.current !== true) {
           addActivity({
             type: 'system',
             action: 'Motion Detected',
@@ -711,6 +720,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             success: true,
             triggeredBy: 'system',
           });
+        }
+        if (parsed.type === 'MOTION') {
+          lastMotionState.current = parsed.value as boolean;
         }
       }
       // Handle generic message format (backward compatibility)
@@ -731,7 +743,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               device.id === genericMsg.data.deviceId
                 ? {
                     ...device,
-                    status: genericMsg.data.status || device.status,
+                    status: (genericMsg.data.status?.toLowerCase() || device.status) as 'online' | 'offline',
                     ...(genericMsg.data.modules && { modules: genericMsg.data.modules })
                   }
                 : device
@@ -748,7 +760,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                       module.id === genericMsg.data.moduleId
                         ? {
                             ...module,
-                            status: genericMsg.data.status || module.status,
+                            status: (genericMsg.data.status?.toLowerCase() || module.status) as 'online' | 'offline',
                             value: genericMsg.data.value ?? module.value,
                             displayValue: genericMsg.data.displayValue ?? module.displayValue,
                           }

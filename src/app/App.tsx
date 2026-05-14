@@ -10,7 +10,7 @@ import { Dashboard } from "./components/Dashboard";
 import { DeviceControl } from "./components/DeviceControl";
 import { DeviceDetail } from "./components/DeviceDetail";
 import { DevicesList } from "./components/DevicesList";
-import { ActivityLog } from "./components/ActivityLog";
+import { ModuleDetail } from "./components/ModuleDetail";
 import { DeviceManagement } from "./components/DeviceManagement";
 import { HubManagement } from "./components/HubManagement";
 import { HubDetail } from "./components/HubDetail";
@@ -50,7 +50,7 @@ const router = createBrowserRouter([
           { index: true, element: <Dashboard /> },
           { path: "devices/:deviceId", element: <DeviceDetail /> },
           { path: "devices", element: <DevicesList /> },
-          { path: "history", element: <ActivityLog /> },
+          { path: "modules/:moduleId", element: <ModuleDetail /> },
           { path: "device-management", element: <DeviceManagement /> },
           { path: "hub-management", element: <HubManagement /> },
           { path: "hub-management/:hubId", element: <HubDetail /> },

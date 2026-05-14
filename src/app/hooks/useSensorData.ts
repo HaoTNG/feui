@@ -54,7 +54,7 @@ export function useSensorData({
       category: 'data' as const,
       type,
       channel: 1,
-      payload: payload || String(value || ''),
+      payload: payload || (typeof value === 'boolean' ? (value ? '1' : '0') : String(value ?? '')),
     };
 
     // Parse data

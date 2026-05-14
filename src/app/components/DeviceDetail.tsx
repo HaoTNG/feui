@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Edit2, Trash2, Share2, Power, AlertCircle, Home, Plus, X } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router";
+import { ArrowLeft, Edit2, Trash2, Share2, Power, AlertCircle, Home, Plus, X, History } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../contexts/AppContext";
 import { deviceService } from "../api/services/deviceService";
@@ -388,15 +388,29 @@ export function DeviceDetail() {
           {modules && modules.length > 0 ? (
             <div className="space-y-4">
               {modules.map((module) => (
-                <ModuleControl 
-                  key={module.id}
-                  module={module} 
-                  isDarkMode={isDarkMode}
-                  onStateChange={(newState) => {
-                    // Update module state in local array
-                    setModules(modules.map(m => m.id === module.id ? { ...m, state: newState } : m));
-                  }}
-                />
+                <div key={module.id} className="space-y-2">
+                  <ModuleControl 
+                    module={module} 
+                    isDarkMode={isDarkMode}
+                    onStateChange={(newState) => {
+                      // Update module state in local array
+                      setModules(modules.map(m => m.id === module.id ? { ...m, state: newState } : m));
+                    }}
+                  />
+                  <div className="flex justify-end px-2">
+                    <Link
+                      to={`/modules/${module.id}`}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                        isDarkMode
+                          ? "text-blue-400 hover:text-blue-300"
+                          : "text-blue-600 hover:text-blue-700"
+                      }`}
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      View Command History
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (

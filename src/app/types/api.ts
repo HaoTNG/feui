@@ -219,6 +219,148 @@ export interface SendModuleCommandRequest {
 }
 
 // ============================================================
+// 8. AUTOMATION MANAGEMENT
+// ============================================================
+
+export type TriggerNodeType = "AND" | "OR" | "CONDITION";
+
+export type TriggerOperator =
+  | "GREATER_THAN"
+  | "GREATER_THAN_OR_EQUAL"
+  | "LESS_THAN"
+  | "LESS_THAN_OR_EQUAL"
+  | "EQUAL"
+  | "NOT_EQUAL";
+
+export interface TriggerTreeNode {
+  type: TriggerNodeType;
+  moduleId?: string;
+  operator?: TriggerOperator;
+  value?: string;
+  children?: TriggerTreeNode[];
+}
+
+export interface CreateAutomationRequest {
+  roomId: string;
+  name: string;
+  description: string;
+  scheduleType: "NONE" | "CRON" | "INTERVAL";
+  cron?: string;
+  interval?: number;
+  triggerTree: TriggerTreeNode;
+  enabled: boolean;
+}
+
+export interface UpdateAutomationRequest {
+  roomId?: string;
+  name?: string;
+  description?: string;
+  scheduleType?: "NONE" | "CRON" | "INTERVAL";
+  cron?: string;
+  interval?: number;
+  triggerTree?: TriggerTreeNode;
+  enabled?: boolean;
+}
+
+export interface AutomationDTO {
+  id: string;
+  name: string;
+  description: string;
+  roomId: string;
+  enabled: boolean;
+  scheduleType?: "NONE" | "CRON" | "INTERVAL";
+  cron?: string;
+  interval?: number;
+  triggerTree: TriggerTreeNode;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddAutomationActionRequest {
+  moduleId: string;
+  commandTemplateId: string;
+  payload: string;
+  executionOrder: number;
+}
+
+export interface UpdateAutomationActionRequest {
+  commandTemplateId?: string;
+  payload?: string;
+}
+
+export interface AutomationActionDTO {
+  id: string;
+  automationId: string;
+  moduleId: string;
+  commandTemplateId: string;
+  payload: string;
+  executionOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommandTemplateDTO {
+  id: string;
+  code: string;
+  name: string;
+  supportedModuleType: ModuleType;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================
+// 9. ALERT RULE MANAGEMENT
+// ============================================================
+
+export type AlertOperator = TriggerOperator;
+
+export interface AlertRuleDTO {
+  id: string;
+  moduleId: string;
+  operator: AlertOperator;
+  value: string;
+  message: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAlertRuleRequest {
+  value: string;
+  message: string;
+  enabled: boolean;
+  operator: AlertOperator;
+}
+
+export interface UpdateAlertRuleRequest {
+  value?: string;
+  message?: string;
+  enabled?: boolean;
+  operator?: AlertOperator;
+}
+
+// ============================================================
+// 10. COMMAND EXECUTION
+// ============================================================
+
+export type CommandSource = "USER" | "AUTOMATION";
+export type CommandStatus = "SUCCESS" | "FAILED" | "PENDING";
+
+export interface CommandExecutionDTO {
+  id: string;
+  moduleId: string;
+  commandTemplateId: string | null;
+  automationId: string | null;
+  userId: string | null;
+  source: CommandSource;
+  payload: string;
+  status: CommandStatus;
+  errorMessage: string | null;
+  createdAt: string;
+  executedAt: string | null;
+}
+
+// ============================================================
 // MAPPED/TRANSFORMED TYPES (For Frontend Use)
 // ============================================================
 

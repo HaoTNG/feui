@@ -3,7 +3,7 @@
  * Handles module operations on devices
  */
 
-import type { ModuleDTO, AddModuleRequest, UpdateModuleNameRequest, SendModuleCommandRequest } from '../../types/api';
+import type { ModuleDTO, AddModuleRequest, UpdateModuleNameRequest, SendModuleCommandRequest, CommandExecutionDTO } from '../../types/api';
 import { apiRequest } from '../client';
 import API_ENDPOINTS from '../endpoints';
 import { MODULE_IDS, FAN_SPEEDS, BRIGHTNESS_LEVELS } from '../../config/moduleConstants';
@@ -37,6 +37,19 @@ class ModuleService {
       return response.data;
     } catch (error) {
       console.error(`Failed to fetch module ${moduleId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get command execution history for a module
+   */
+  async getCommandExecutions(moduleId: string): Promise<CommandExecutionDTO[]> {
+    try {
+      const response = await apiRequest<CommandExecutionDTO[]>('get', API_ENDPOINTS.MODULES.COMMAND_EXECUTIONS(moduleId));
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to fetch command executions for module ${moduleId}:`, error);
       throw error;
     }
   }
